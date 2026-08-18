@@ -1,0 +1,3167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Online Attendance | San Isidro College</title>
+    <!-- PERFORMANCE REVISION: static background, no particles, optimized scanner, event matrix, transparent glass -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <style>
+        :root {
+            --glass-bg: rgba(255, 255, 255, 0.055);
+            --glass-bg-strong: rgba(255, 255, 255, 0.075);
+            --glass-border: rgba(255, 255, 255, 0.16);
+            --glass-border-strong: rgba(255, 255, 255, 0.35);
+            --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.25);
+            --primary-purple: #8b5cf6;
+            --primary-pink: #ec4899;
+            --primary-blue: #3b82f6;
+            --text-dark: #0f0a1e;
+            --text-light: #f8fafc;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 25%, #4c1d95 50%, #be185d 75%, #1e3a8a 100%);
+            background-size: 100% 100%;
+            min-height: 100vh;
+            color: var(--text-light);
+            overflow-x: hidden;
+            position: relative;
+        }
+        .header {
+            position: relative; z-index: 10;
+            text-align: center;
+            padding: 40px 20px 30px;
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(236, 72, 153, 0.15) 100%);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--glass-border);
+        }
+        .header h1 {
+            font-size: clamp(2.5rem, 8vw, 5rem);
+            font-weight: 900;
+            background: linear-gradient(135deg, #a78bfa 0%, #e879f9 30%, #f472b6 60%, #c084fc 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 80px rgba(139, 92, 246, 0.5);
+            letter-spacing: -2px; margin-bottom: 10px;
+            /* static glow for smoother scrolling */
+        }
+        @keyframes titleGlow {
+            from { filter: drop-shadow(0 0 20px rgba(139, 92, 246, 0.4)); }
+            to { filter: drop-shadow(0 0 20px rgba(139, 92, 246, 0.4)); }
+        }
+        .header .subtitle {
+            font-size: clamp(1rem, 3vw, 1.3rem);
+            color: rgba(255, 255, 255, 0.85);
+            font-weight: 500;
+            text-shadow: 0 2px 15px rgba(0,0,0,0.3);
+        }
+        .header .course-badges {
+            display: flex; justify-content: center;
+            gap: 15px; margin-top: 20px; flex-wrap: wrap;
+        }
+        .badge {
+            background: var(--glass-bg);
+            backdrop-filter: blur(15px);
+            border: 1px solid var(--glass-border);
+            padding: 10px 25px;
+            border-radius: 50px;
+            color: white;
+            font-weight: 600; font-size: 0.9rem;
+            box-shadow: 0 4px 20px rgba(139, 92, 246, 0.2), inset 0 1px 0 rgba(255,255,255,0.1);
+            transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+        }
+        .badge:hover {
+            box-shadow: 0 8px 30px rgba(139, 92, 246, 0.4), inset 0 1px 0 rgba(255,255,255,0.2);
+            border-color: var(--glass-border-strong);
+        }
+        .container {
+            position: relative; z-index: 10;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        .tabs {
+            display: flex; justify-content: center;
+            gap: 15px; margin-bottom: 40px; flex-wrap: wrap;
+        }
+        .tab-btn {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            padding: 16px 40px;
+            border-radius: 50px;
+            color: white;
+            font-weight: 600; font-size: 1rem;
+            cursor: pointer;
+            transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.1);
+            font-family: 'Poppins', sans-serif;
+            position: relative; overflow: hidden;
+        }
+        .tab-btn::before {
+            content: ''; position: absolute;
+            top: 0; left: -100%;
+            width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s ease;
+        }
+        .tab-btn:hover::before { left: 100%; }
+        .tab-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            box-shadow: 0 8px 30px rgba(139, 92, 246, 0.3), inset 0 1px 0 rgba(255,255,255,0.2);
+            border-color: var(--glass-border-strong);
+        }
+        .tab-btn.active {
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.6), rgba(236, 72, 153, 0.6));
+            border-color: rgba(255, 255, 255, 0.4);
+            box-shadow: 0 0 30px rgba(139, 92, 246, 0.4), 0 0 60px rgba(236, 72, 153, 0.2), inset 0 1px 0 rgba(255,255,255,0.2);
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.6s ease; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .glass-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 40px;
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.2), inset 0 1px 0 rgba(255,255,255,0.1);
+            margin-bottom: 30px;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+            position: relative; overflow: hidden;
+        }
+        .glass-card::before { content: none; }
+        .glass-card:hover {
+            box-shadow: 0 12px 38px rgba(139, 92, 246, 0.14), inset 0 1px 0 rgba(255,255,255,0.12);
+            border-color: var(--glass-border-strong);
+        }
+        .glass-card h2 {
+            color: white; font-size: 1.8rem;
+            margin-bottom: 25px;
+            display: flex; align-items: center; gap: 12px;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+        .glass-card h2 i {
+            background: linear-gradient(135deg, #a78bfa, #e879f9);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 1.5rem;
+            filter: drop-shadow(0 0 8px rgba(139, 92, 246, 0.5));
+        }
+        .form-group { margin-bottom: 22px; }
+        .form-group label {
+            display: block;
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 500;
+            margin-bottom: 10px;
+            font-size: 0.95rem;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 16px 20px;
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(10px);
+            color: white;
+            font-size: 1rem;
+            font-family: 'Poppins', sans-serif;
+            transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+            outline: none;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .form-group input::placeholder, .form-group textarea::placeholder {
+            color: rgba(255, 255, 255, 0.4);
+        }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            border-color: rgba(236, 72, 153, 0.6);
+            background: rgba(255, 255, 255, 0.1);
+            box-shadow: 0 0 25px rgba(236, 72, 153, 0.2), inset 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .form-group select option { background: #1e1b4b; color: white; }
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .form-row.three-col {
+            grid-template-columns: 1fr 1fr 1fr;
+        }
+        @media (max-width: 768px) { 
+            .form-row { grid-template-columns: 1fr; } 
+            .form-row.three-col { grid-template-columns: 1fr; }
+        }
+        .btn {
+            padding: 16px 45px;
+            border: none; border-radius: 50px;
+            font-size: 1rem; font-weight: 600;
+            font-family: 'Poppins', sans-serif;
+            cursor: pointer;
+            transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+            display: inline-flex;
+            align-items: center; gap: 12px;
+            position: relative; overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+        .btn::before {
+            content: ''; position: absolute;
+            top: 0; left: -100%;
+            width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transition: left 0.5s ease;
+        }
+        .btn:hover::before { left: 100%; }
+        .btn-primary {
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.9), rgba(236, 72, 153, 0.9));
+            color: white;
+            box-shadow: 0 8px 30px rgba(139, 92, 246, 0.4), 0 0 20px rgba(236, 72, 153, 0.2);
+        }
+        .btn-primary:hover {
+            box-shadow: 0 12px 40px rgba(139, 92, 246, 0.6), 0 0 30px rgba(236, 72, 153, 0.3);
+        }
+        .btn-success {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.9), rgba(52, 211, 153, 0.9));
+            color: white;
+            box-shadow: 0 8px 30px rgba(16, 185, 129, 0.4);
+        }
+        .btn-success:hover {
+            box-shadow: 0 12px 40px rgba(16, 185, 129, 0.6);
+        }
+        .btn-danger {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.9), rgba(248, 113, 113, 0.9));
+            color: white;
+            box-shadow: 0 8px 30px rgba(239, 68, 68, 0.4);
+        }
+        .btn-warning {
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.9), rgba(251, 191, 36, 0.9));
+            color: white;
+            box-shadow: 0 8px 30px rgba(245, 158, 11, 0.4);
+        }
+        .btn-info {
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.9), rgba(96, 165, 250, 0.9));
+            color: white;
+            box-shadow: 0 8px 30px rgba(59, 130, 246, 0.4);
+        }
+        .btn-info:hover {
+            box-shadow: 0 12px 40px rgba(59, 130, 246, 0.6);
+        }
+        .qr-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px; align-items: start;
+        }
+        @media (max-width: 768px) { .qr-section { grid-template-columns: 1fr; } }
+        .qr-display {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+            min-height: 320px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center; align-items: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3), inset 0 0 0 1px rgba(255,255,255,0.5);
+        }
+        .qr-display canvas, .qr-display img {
+            max-width: 250px;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+        }
+        .qr-placeholder {
+            color: #94a3b8; font-size: 1.1rem;
+        }
+        .qr-placeholder i {
+            font-size: 4rem; margin-bottom: 15px;
+            display: block; color: #cbd5e1;
+        }
+        .scanner-container {
+            position: relative;
+            width: 100%; max-width: 400px;
+            margin: 0 auto;
+            border-radius: 20px; overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4), 0 0 40px rgba(139, 92, 246, 0.2);
+        }
+        .scanner-container video {
+            width: 100%; display: block;
+            border-radius: 20px;
+        }
+        .event-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 20px;
+            transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+            position: relative; overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.1);
+        }
+        .event-card::before {
+            content: ''; position: absolute;
+            top: 0; left: 0;
+            width: 4px; height: 100%;
+            background: linear-gradient(to bottom, var(--primary-purple), var(--primary-pink));
+        }
+        .event-card:hover {
+            box-shadow: 0 10px 40px rgba(139, 92, 246, 0.2), inset 0 1px 0 rgba(255,255,255,0.15);
+            border-color: var(--glass-border-strong);
+        }
+        .event-card h3 {
+            color: white; font-size: 1.3rem;
+            margin-bottom: 12px;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .event-card h3 i { color: #e879f9; }
+        .event-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px; margin-top: 15px;
+        }
+        .event-detail {
+            display: flex; align-items: center; gap: 10px;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.95rem;
+        }
+        .event-detail i { color: #a78bfa; width: 20px; }
+        .event-badge {
+            display: inline-block;
+            padding: 6px 16px;
+            border-radius: 50px;
+            font-size: 0.85rem; font-weight: 600;
+            margin-top: 10px;
+        }
+        .event-badge.uniform-white { background: rgba(255, 255, 255, 0.2); color: white; }
+        .event-badge.uniform-polo { background: rgba(59, 130, 246, 0.3); color: #93c5fd; }
+        .event-badge.uniform-civilian { background: rgba(16, 185, 129, 0.3); color: #6ee7b7; }
+        .table-container {
+            overflow-x: auto;
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            box-shadow: inset 0 0 0 1px var(--glass-border);
+        }
+        table { width: 100%; border-collapse: collapse; color: white; }
+        th, td {
+            padding: 16px 20px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        th {
+            background: rgba(139, 92, 246, 0.2);
+            font-weight: 600; font-size: 0.85rem;
+            text-transform: uppercase; letter-spacing: 1.5px;
+            color: #c4b5fd;
+        }
+        tr:hover { background: rgba(255, 255, 255, 0.03); }
+        .status-present {
+            background: rgba(16, 185, 129, 0.25);
+            color: #6ee7b7;
+            padding: 6px 16px;
+            border-radius: 50px;
+            font-size: 0.8rem; font-weight: 600;
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
+        }
+        .status-late {
+            background: rgba(245, 158, 11, 0.25);
+            color: #fcd34d;
+            padding: 6px 16px;
+            border-radius: 50px;
+            font-size: 0.8rem; font-weight: 600;
+            box-shadow: 0 0 10px rgba(245, 158, 11, 0.2);
+        }
+        .status-absent {
+            background: rgba(239, 68, 68, 0.25);
+            color: #fca5a5;
+            padding: 6px 16px;
+            border-radius: 50px;
+            font-size: 0.8rem; font-weight: 600;
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.2);
+        }
+        .status-in { background: rgba(59, 130, 246, 0.25); color: #93c5fd; padding: 6px 16px; border-radius: 50px; font-size: 0.8rem; font-weight: 600; }
+        .status-out { background: rgba(139, 92, 246, 0.25); color: #c4b5fd; padding: 6px 16px; border-radius: 50px; font-size: 0.8rem; font-weight: 600; }
+        .toast {
+            position: fixed; bottom: 30px; right: 30px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(25px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 20px 30px;
+            color: white; font-weight: 500;
+            box-shadow: var(--glass-shadow), 0 0 30px rgba(139, 92, 246, 0.2);
+            z-index: 2000;
+            transform: translateX(400px);
+            transition: transform 0.4s ease;
+            display: flex; align-items: center; gap: 12px;
+        }
+        .toast.show { transform: translateX(0); }
+        .toast.success { border-left: 4px solid #10b981; }
+        .toast.error { border-left: 4px solid #ef4444; }
+        .toast.info { border-left: 4px solid #3b82f6; }
+        .floating-widget {
+            display: none !important;
+            position: fixed;
+            top: 50%; right: 20px;
+            transform: translateY(-50%);
+            background: var(--glass-bg);
+            backdrop-filter: blur(25px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 25px;
+            width: 280px;
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.3), 0 0 20px rgba(139, 92, 246, 0.1);
+            z-index: 100;
+            transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .floating-widget:hover {
+            box-shadow: 0 12px 40px rgba(139, 92, 246, 0.3), 0 0 30px rgba(236, 72, 153, 0.15);
+            border-color: var(--glass-border-strong);
+        }
+        .floating-widget h3 {
+            color: white; font-size: 1.1rem;
+            margin-bottom: 15px;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .floating-widget h3 i { color: #e879f9; }
+        .widget-item {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+        }
+        .widget-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        .widget-item p {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.9rem; line-height: 1.5;
+        }
+        .widget-item small {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.75rem;
+        }
+        @media (max-width: 1400px) { .floating-widget { display: none; } }
+        #studentAnnouncementsCard .widget-item {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin-bottom: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+            border-left: 3px solid transparent;
+        }
+        #studentAnnouncementsCard .widget-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        #studentAnnouncementsCard .widget-item strong {
+            color: #e879f9;
+            display: block;
+            margin-bottom: 4px;
+            font-size: 0.95rem;
+        }
+        #studentAnnouncementsCard .widget-item p {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 0.95rem;
+            line-height: 1.5;
+            margin: 0;
+        }
+        #studentAnnouncementsCard .widget-item small {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.8rem;
+            display: block;
+            margin-top: 6px;
+        }
+        #studentAnnouncementsCard .widget-item.urgent {
+            border-left-color: #ef4444;
+            background: rgba(239, 68, 68, 0.08);
+        }
+        #studentAnnouncementsCard .widget-item.important {
+            border-left-color: #f59e0b;
+            background: rgba(245, 158, 11, 0.08);
+        }
+        #studentAnnouncementsCard .widget-item.normal {
+            border-left-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.08);
+        }
+        .pagination-info {
+            color: rgba(255,255,255,0.7);
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .pagination-info a {
+            color: #e879f9;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .pagination-info a:hover {
+            text-decoration: underline;
+        }
+        .sync-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(16, 185, 129, 0.15);
+            color: #6ee7b7;
+            padding: 4px 12px;
+            border-radius: 50px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .footer {
+            position: relative; z-index: 10;
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid var(--glass-border);
+            padding: 50px 20px 30px;
+            margin-top: 60px;
+        }
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 40px;
+        }
+        .footer-section h3 {
+            color: white; font-size: 1.2rem;
+            margin-bottom: 20px;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .footer-section p, .footer-section a {
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none;
+            line-height: 1.8;
+            transition: color 0.3s;
+        }
+        .footer-section a:hover { color: #e879f9; }
+        .social-links {
+            display: flex; gap: 15px;
+            margin-top: 15px; flex-wrap: wrap;
+        }
+        .social-links a {
+            width: 45px; height: 45px;
+            border-radius: 50%;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            display: flex;
+            align-items: center; justify-content: center;
+            color: white; font-size: 1.2rem;
+            transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .social-links a:hover {
+            background: linear-gradient(135deg, var(--primary-purple), var(--primary-pink));
+            box-shadow: 0 8px 25px rgba(139, 92, 246, 0.4);
+            border-color: transparent;
+        }
+        .footer-bottom {
+            text-align: center;
+            margin-top: 40px; padding-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.9rem;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px; margin-bottom: 30px;
+        }
+        .stat-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(15px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 25px;
+            text-align: center; color: white;
+            transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(139, 92, 246, 0.25), 0 0 20px rgba(236, 72, 153, 0.1), inset 0 1px 0 rgba(255,255,255,0.15);
+            border-color: var(--glass-border-strong);
+        }
+        .stat-card i {
+            font-size: 2.5rem; margin-bottom: 10px;
+            background: linear-gradient(135deg, #a78bfa, #e879f9);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 0 8px rgba(139, 92, 246, 0.5));
+        }
+        .stat-card .number { font-size: 2rem; font-weight: 700; margin: 5px 0; text-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+        .stat-card .label { font-size: 0.9rem; opacity: 0.8; }
+        input[type="file"] { display: none; }
+        .file-upload-btn {
+            display: inline-flex; align-items: center; gap: 10px;
+            padding: 14px 28px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 2px dashed var(--glass-border);
+            border-radius: 16px; color: white;
+            cursor: pointer;
+            transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+            font-family: 'Poppins', sans-serif;
+            font-size: 0.95rem;
+            backdrop-filter: blur(10px);
+        }
+        .file-upload-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: var(--primary-pink);
+            box-shadow: 0 0 20px rgba(236, 72, 153, 0.2);
+        }
+        .uniform-selector {
+            display: flex; gap: 15px; flex-wrap: wrap;
+            margin-top: 10px;
+        }
+        .uniform-option {
+            flex: 1; min-width: 150px;
+            padding: 20px;
+            border-radius: 16px;
+            border: 2px solid var(--glass-border);
+            background: rgba(255, 255, 255, 0.05);
+            cursor: pointer;
+            transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+        .uniform-option:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--glass-border-strong);
+        }
+        .uniform-option.selected {
+            border-color: var(--primary-pink);
+            background: rgba(236, 72, 153, 0.15);
+            box-shadow: 0 0 20px rgba(236, 72, 153, 0.2);
+        }
+        .uniform-option i { font-size: 2rem; margin-bottom: 8px; display: block; }
+        .uniform-option.white i { color: #f8fafc; }
+        .uniform-option.polo i { color: #93c5fd; }
+        .uniform-option.civilian i { color: #6ee7b7; }
+        .uniform-option span { font-size: 0.9rem; font-weight: 500; color: white; }
+        .sync-indicator {
+            position: fixed;
+            top: 20px; left: 20px;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(15px);
+            border: 1px solid var(--glass-border);
+            border-radius: 50px;
+            padding: 8px 16px;
+            font-size: 0.85rem;
+            color: rgba(255,255,255,0.8);
+            transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+        }
+        .sync-indicator.connected { border-color: rgba(16, 185, 129, 0.5); color: #6ee7b7; }
+        .sync-indicator.disconnected { border-color: rgba(239, 68, 68, 0.5); color: #fca5a5; }
+        .sync-indicator i { font-size: 0.7rem; }
+        .sync-indicator.connected i { animation: none; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        @media (max-width: 768px) {
+            .glass-card, .header, .tab-btn, .form-group input, .form-group select, .form-group textarea,
+            .table-container, .event-card, .stat-card, .inout-btn, .file-upload-btn {
+                backdrop-filter: blur(8px);
+                -webkit-backdrop-filter: blur(8px);
+            }
+            .header { padding: 30px 15px 25px; }
+            .glass-card { padding: 25px; }
+            .tabs { gap: 8px; }
+            .tab-btn { padding: 12px 25px; font-size: 0.9rem; }
+        }
+
+        /* Performance mode: keep the glass aesthetic without continuous motion. */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.001ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.001ms !important;
+                scroll-behavior: auto !important;
+            }
+        }
+        .scan-result-card {
+            min-height: 72px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 600;
+        }
+        .connection-note {
+            font-size: .78rem;
+            color: rgba(255,255,255,.62);
+            margin-top: 8px;
+        }
+        .matrix-table th, .matrix-table td { text-align:center; white-space:nowrap; }
+        .matrix-table th:first-child, .matrix-table td:first-child { text-align:left; }
+        .matrix-ok { color:#6ee7b7; font-weight:700; }
+        .matrix-late { color:#fcd34d; font-weight:700; }
+        .matrix-missing { color:#fca5a5; font-weight:700; }
+        .matrix-na { color:rgba(255,255,255,.4); }
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); }
+        ::-webkit-scrollbar-thumb { background: linear-gradient(var(--primary-purple), var(--primary-pink)); border-radius: 4px; }
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 20px rgba(139, 92, 246, 0.3); }
+            50% { box-shadow: 0 0 40px rgba(236, 72, 153, 0.4); }
+        }
+        .glow-pulse { animation: none; }
+        .inout-toggle {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        .inout-btn {
+            flex: 1;
+            min-width: 100px;
+            padding: 12px 16px;
+            border-radius: 14px;
+            border: 2px solid var(--glass-border);
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+            font-family: 'Poppins', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+        .inout-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--glass-border-strong);
+        }
+        .inout-btn.selected {
+            border-color: var(--primary-blue);
+            background: rgba(59, 130, 246, 0.2);
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+        }
+        .inout-btn i { margin-right: 6px; }
+        .student-info-display {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .student-info-display p {
+            color: rgba(255, 255, 255, 0.9);
+            margin: 5px 0;
+            font-size: 0.95rem;
+        }
+        .student-info-display strong {
+            color: #e879f9;
+        }
+        .qr-expiry-note {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            border-radius: 12px;
+            padding: 12px 16px;
+            margin-top: 15px;
+            color: #fcd34d;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .qr-expiry-note i { font-size: 1.2rem; }
+        .filter-bar {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            align-items: end;
+        }
+        .filter-bar .form-group {
+            margin-bottom: 0;
+            flex: 1;
+            min-width: 150px;
+        }
+        .filter-bar .form-group label {
+            font-size: 0.85rem;
+            margin-bottom: 6px;
+        }
+        .filter-bar .form-group select {
+            padding: 12px 16px;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="sync-indicator" id="syncIndicator">
+        <i class="fas fa-circle"></i>
+        <span>Connecting...</span>
+    </div>
+
+
+    <div class="floating-widget" id="floatingWidget" style="display: none;">
+        <h3><i class="fas fa-bullhorn"></i> Announcements</h3>
+        <div id="widgetContent">
+            <div class="widget-item">
+                <p>Welcome to SIC Online Attendance System!</p>
+                <small>Posted by Moderator</small>
+            </div>
+        </div>
+    </div>
+
+    <header class="header">
+        <h1>ONLINE ATTENDANCE</h1>
+        <p class="subtitle">San Isidro College &mdash; Malaybalay City, Bukidnon</p>
+        <div class="course-badges">
+            <span class="badge"><i class="fas fa-heart-pulse"></i> Bachelor of Science in Nursing</span>
+            <span class="badge"><i class="fas fa-baby"></i> Bachelor of Science in Midwifery</span>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('student')">
+                <i class="fas fa-user-graduate"></i> Student Portal
+            </button>
+            <button class="tab-btn" onclick="switchTab('moderator')">
+                <i class="fas fa-shield-halved"></i> Moderator
+            </button>
+        </div>
+
+        <div id="student" class="tab-content active">
+            <div class="glass-card" id="studentAnnouncementsCard">
+                <h2><i class="fas fa-bullhorn"></i> Announcements</h2>
+                <div id="studentAnnouncementsList">
+                    <p style="color: rgba(255,255,255,0.6); text-align: center; padding: 20px;">
+                        <i class="fas fa-bullhorn" style="font-size: 2rem; display: block; margin-bottom: 10px;"></i>
+                        No announcements yet.
+                    </p>
+                </div>
+            </div>
+
+            <div class="glass-card" id="studentEventsCard">
+                <h2><i class="fas fa-calendar-star"></i> Upcoming Events</h2>
+                <div id="studentEventsList">
+                    <p style="color: rgba(255,255,255,0.6); text-align: center; padding: 30px;">
+                        <i class="fas fa-calendar-xmark" style="font-size: 2rem; display: block; margin-bottom: 10px;"></i>
+                        No events scheduled yet. Check back soon!
+                    </p>
+                </div>
+            </div>
+
+            <div class="glass-card" id="studentLoginCard">
+                <h2><i class="fas fa-right-to-bracket"></i> Student Log In</h2>
+
+                <form id="studentLoginForm">
+                    <div class="form-row three-col">
+                        <div class="form-group">
+                            <label>Last Name</label>
+                            <input type="text" id="studentLastName"  required>
+                        </div>
+                        <div class="form-group">
+                            <label>Given Name</label>
+                            <input type="text" id="studentGivenName"  required>
+                        </div>
+                        <div class="form-group">
+                            <label>Middle Initial</label>
+                            <input type="text" id="studentMiddleInitial" maxlength="3">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Student ID</label>
+                            <input type="text" id="studentId" inputmode="numeric" autocomplete="off" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Program</label>
+                            <select id="studentProgram" required>
+                                <option value="">Select Program</option>
+                                <option value="BSN">Bachelor of Science in Nursing (BSN)</option>
+                                <option value="BSMid">Bachelor of Science in Midwifery</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Year Level</label>
+                            <select id="studentYear" required>
+                                <option value="">Select Year</option>
+                                <option value="1">1st Year</option>
+                                <option value="2">2nd Year</option>
+                                <option value="3">3rd Year</option>
+                                <option value="4">4th Year</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Section</label>
+                            <select id="studentSection" required>
+                                <option value="">Select Section</option>
+                                <option value="A">Section A</option>
+                                <option value="B">Section B</option>
+                                <option value="C">Section C</option>
+                                <option value="D">Section D</option>
+                                <option value="E">Section E</option>
+                                <option value="F">Section F</option>
+                                <option value="G">Section G</option>
+                                <option value="H">Section H</option>
+                                <option value="I">Section I</option>
+                                <option value="J">Section J</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-sign-in-alt"></i> Log In
+                    </button>
+                </form>
+            </div>
+
+            <div class="glass-card" id="qrGenerationCard" style="display: none;">
+                <h2><i class="fas fa-qrcode"></i> Generate Your Attendance QR Code</h2>
+                <div class="student-info-display" id="loggedInStudentInfo"></div>
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label for="qrEventSelect">Select the Exact Event for This QR Code</label>
+                    <select id="qrEventSelect" required>
+                        <option value="">Select Event</option>
+                    </select>
+                    <small style="display:block; margin-top:8px; color:rgba(255,255,255,0.65);">Each event has its own QR code. A QR created for one event cannot be used for another event.</small>
+                </div>
+                <p style="color: rgba(255,255,255,0.8); margin-bottom: 20px; line-height: 1.7;">
+                    Select the exact event, then generate the QR code. <strong style="color: #e879f9;">Moderators will scan this event-specific QR</strong> to record your attendance.
+                </p>
+                <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px;">
+                    <button class="btn btn-success" onclick="generateQR()">
+                        <i class="fas fa-qrcode"></i> Generate QR Code
+                    </button>
+                    <button class="btn btn-warning" onclick="clearStudentSession()">
+                        <i class="fas fa-right-from-bracket"></i> Log Out / Switch Account
+                    </button>
+                </div>
+                <div class="qr-section">
+                    <div>
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px;">
+                            <button class="btn btn-success" onclick="downloadQR()" id="downloadBtn" style="display:none;">
+                                <i class="fas fa-download"></i> Download QR
+                            </button>
+                            <button class="btn btn-primary" onclick="printQR()" id="printBtn" style="display:none;">
+                                <i class="fas fa-print"></i> Print ID Card
+                            </button>
+                        </div>
+                        <div class="qr-expiry-note">
+                            <i class="fas fa-clock"></i>
+                            <span>Your QR code is valid for <strong>24 hours</strong> from generation. You can generate it ahead of time or the night before the event.</span>
+                        </div>
+                    </div>
+                    <div class="qr-display" id="qrDisplay">
+                        <div class="qr-placeholder">
+                            <i class="fas fa-qrcode"></i>
+                            <p>Select an event above, then click &quot;Generate QR Code&quot;</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-card">
+                <h2><i class="fas fa-clock-rotate-left"></i> My Attendance History</h2>
+                <div class="table-container">
+                    <table id="studentHistoryTable">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Time</th>
+                                <th>Event / Subject</th>
+                                <th>Section</th>
+                                <th>Status</th>
+                                <th>Scan Type</th>
+                            </tr>
+                        </thead>
+                        <tbody id="studentHistoryBody">
+                            <tr>
+                                <td colspan="6" style="text-align: center; color: rgba(255,255,255,0.5);">
+                                    No attendance records yet. Have your QR scanned at an event to start tracking.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="moderator" class="tab-content">
+            <div class="glass-card" id="moderatorLoginCard">
+                <h2><i class="fas fa-lock"></i> Moderator Access</h2>
+                <p style="color: rgba(255,255,255,0.8); margin-bottom: 25px;">
+                    Enter the moderator password to access the attendance dashboard. Multiple moderators can scan simultaneously.
+                </p>
+                <form id="moderatorLoginForm">
+                    <div class="form-group" style="max-width: 400px;">
+                        <label>Password</label>
+                        <input type="password" id="moderatorPassword" placeholder="Enter moderator password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-unlock"></i> Access Dashboard
+                    </button>
+                </form>
+            </div>
+
+            <div id="moderatorDashboard" style="display: none;">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <i class="fas fa-users"></i>
+                        <div class="number" id="totalStudents">0</div>
+                        <div class="label">Total Registered Students</div>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-check-circle"></i>
+                        <div class="number" id="presentToday">0</div>
+                        <div class="label">Present Today</div>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-user-clock"></i>
+                        <div class="number" id="lateToday">0</div>
+                        <div class="label">Late Today</div>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-user-xmark"></i>
+                        <div class="number" id="absentToday">0</div>
+                        <div class="label">Absent Today</div>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-percentage"></i>
+                        <div class="number" id="attendanceRate">0%</div>
+                        <div class="label">Attendance Rate</div>
+                    </div>
+                </div>
+
+                <div class="glass-card">
+                    <h2><i class="fas fa-calendar-plus"></i> Create New Event</h2>
+                    <form id="createEventForm">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Event Name</label>
+                                <input type="text" id="eventName" placeholder="e.g., Nursing Skills Lab" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Date</label>
+                                <input type="date" id="eventDate" required>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Time</label>
+                                <input type="time" id="eventTime" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Venue Name</label>
+                                <input type="text" id="eventVenue" placeholder="e.g., Nursing Building Room 301" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Required Uniform</label>
+                            <div class="uniform-selector">
+                                <div class="uniform-option white" data-uniform="White Clinical Uniform" onclick="selectUniform(this)">
+                                    <i class="fas fa-user-nurse"></i>
+                                    <span>White Clinical Uniform</span>
+                                </div>
+                                <div class="uniform-option polo" data-uniform="Polo Shirt" onclick="selectUniform(this)">
+                                    <i class="fas fa-shirt"></i>
+                                    <span>Polo Shirt</span>
+                                </div>
+                                <div class="uniform-option civilian" data-uniform="Civilian Shirt" onclick="selectUniform(this)">
+                                    <i class="fas fa-vest"></i>
+                                    <span>Civilian Shirt</span>
+                                </div>
+                            </div>
+                            <input type="hidden" id="selectedUniform" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Additional Notes / Instructions</label>
+                            <textarea id="eventNotes" rows="3" placeholder="Any special instructions for students..."></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-plus"></i> Create Event
+                        </button>
+                    </form>
+                </div>
+
+                <div class="glass-card">
+                    <h2><i class="fas fa-list-check"></i> Active Events</h2>
+                    <div id="moderatorEventsList">
+                        <p style="color: rgba(255,255,255,0.6); text-align: center; padding: 30px;">
+                            <i class="fas fa-calendar-plus" style="font-size: 2rem; display: block; margin-bottom: 10px;"></i>
+                            No events created yet. Create your first event above.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="glass-card">
+                    <h2><i class="fas fa-bullhorn"></i> Student Dashboard Widget</h2>
+                    <p style="color: rgba(255,255,255,0.8); margin-bottom: 20px;">
+                        Post announcements, reminders, or info that will appear on the student dashboard widget.
+                    </p>
+                    <form id="widgetForm">
+                        <div class="form-group">
+                            <label>Announcement Title</label>
+                            <input type="text" id="widgetTitle" placeholder="e.g., Important Reminder" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Message Content</label>
+                            <textarea id="widgetMessage" rows="2" placeholder="Enter your message..." required></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Urgency Level</label>
+                            <select id="widgetUrgency">
+                                <option value="normal">Normal</option>
+                                <option value="important">Important</option>
+                                <option value="urgent">Urgent</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-paper-plane"></i> Post to Widget
+                        </button>
+                    </form>
+                    <div style="margin-top: 20px;">
+                        <h3 style="color: white; font-size: 1rem; margin-bottom: 10px;">Current Widget Items</h3>
+                        <div id="widgetItemsList">
+                            <p style="color: rgba(255,255,255,0.5); font-size: 0.9rem;">No widget items yet.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-card">
+                    <h2><i class="fas fa-camera"></i> QR Code Scanner</h2>
+                    <p style="color: rgba(255,255,255,0.8); margin-bottom: 8px;">
+                        Point your camera at a student's QR code to automatically record their attendance.
+                    </p>
+                    <div class="connection-note"><i class="fas fa-bolt"></i> Fast scan mode is optimized for continuous classroom/event scanning. Duplicate scans are blocked automatically.</div>
+                    <div class="form-group" style="max-width: 400px; margin-bottom: 20px;">
+                        <label>Select Event for Scanning</label>
+                        <select id="scanEventSelect">
+                            <option value="">General Attendance</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Scan Mode</label>
+                        <div class="inout-toggle">
+                            <button class="inout-btn" data-mode="both" onclick="selectScanMode(this)">
+                                <i class="fas fa-arrows-left-right"></i> Whole Day
+                            </button>
+                            <button class="inout-btn selected" data-mode="am-in" onclick="selectScanMode(this)">
+                                <i class="fas fa-sun"></i> AM IN
+                            </button>
+                            <button class="inout-btn" data-mode="am-out" onclick="selectScanMode(this)">
+                                <i class="fas fa-cloud-sun"></i> AM OUT
+                            </button>
+                            <button class="inout-btn" data-mode="pm-in" onclick="selectScanMode(this)">
+                                <i class="fas fa-cloud-moon"></i> PM IN
+                            </button>
+                            <button class="inout-btn" data-mode="pm-out" onclick="selectScanMode(this)">
+                                <i class="fas fa-moon"></i> PM OUT
+                            </button>
+                        </div>
+                        <input type="hidden" id="scanMode" value="am-in">
+                        <p style="color: rgba(255,255,255,0.6); font-size: 0.85rem; margin-top: 8px;">
+                            <i class="fas fa-circle-info" style="margin-right: 6px;"></i>
+                            <strong>Whole Day:</strong> Auto-detects AM/PM and IN/OUT based on current time.<br>
+                            <strong>AM IN / AM OUT:</strong> Forces morning check-in or check-out.<br>
+                            <strong>PM IN / PM OUT:</strong> Forces afternoon/evening check-in or check-out.
+                        </p>
+                    </div>
+                    <div class="scanner-container" id="scannerContainer">
+                        <div style="background: rgba(0,0,0,0.3); border-radius: 20px; padding: 60px 20px; text-align: center; color: white;">
+                            <i class="fas fa-camera" style="font-size: 3rem; margin-bottom: 15px; opacity: 0.5;"></i>
+                            <p>Camera access required for QR scanning</p>
+                            <button class="btn btn-primary" onclick="startScanner()" style="margin-top: 15px;">
+                                <i class="fas fa-video"></i> Start Camera
+                            </button>
+                        </div>
+                    </div>
+                    <div id="scanResult" style="margin-top: 20px; padding: 15px; border-radius: 12px; display: none;"></div>
+                </div>
+
+                <div class="glass-card">
+                    <h2><i class="fas fa-pen-to-square"></i> Manual Attendance Entry</h2>
+                    <form id="manualEntryForm">
+                        <div class="form-row three-col">
+                            <div class="form-group">
+                                <label>Last Name</label>
+                                <input type="text" id="manualLastName" placeholder="Dela Cruz" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Given Name</label>
+                                <input type="text" id="manualGivenName" placeholder="Juan" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Middle Initial</label>
+                                <input type="text" id="manualMiddleInitial" placeholder="M" maxlength="3">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Student ID</label>
+                                <input type="text" id="manualId" placeholder="2024-123456" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Program</label>
+                                <select id="manualProgram" required>
+                                    <option value="">Select Program</option>
+                                    <option value="BSN">BSN</option>
+                                    <option value="BSMid">BS Midwifery</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Year Level</label>
+                                <select id="manualYear" required>
+                                    <option value="">Select Year</option>
+                                    <option value="1">1st Year</option>
+                                    <option value="2">2nd Year</option>
+                                    <option value="3">3rd Year</option>
+                                    <option value="4">4th Year</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Section</label>
+                                <select id="manualSection" required>
+                                    <option value="">Select Section</option>
+                                    <option value="A">Section A</option>
+                                    <option value="B">Section B</option>
+                                    <option value="C">Section C</option>
+                                    <option value="D">Section D</option>
+                                    <option value="E">Section E</option>
+                                    <option value="F">Section F</option>
+                                    <option value="G">Section G</option>
+                                    <option value="H">Section H</option>
+                                    <option value="I">Section I</option>
+                                    <option value="J">Section J</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Event</label>
+                                <select id="manualEvent">
+                                    <option value="">General Attendance</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Subject / Event Name</label>
+                                <input type="text" id="manualSubject" placeholder="Nursing Fundamentals" required>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Status</label>
+                                <select id="manualStatus" required>
+                                    <option value="Present">Present</option>
+                                    <option value="Late">Late</option>
+                                    <option value="Absent">Absent</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Scan Type</label>
+                            <div class="inout-toggle">
+                                <button type="button" class="inout-btn selected" data-mode="am-in" onclick="selectManualMode(this)">
+                                    <i class="fas fa-sun"></i> AM IN
+                                </button>
+                                <button type="button" class="inout-btn" data-mode="am-out" onclick="selectManualMode(this)">
+                                    <i class="fas fa-cloud-sun"></i> AM OUT
+                                </button>
+                                <button type="button" class="inout-btn" data-mode="pm-in" onclick="selectManualMode(this)">
+                                    <i class="fas fa-cloud-moon"></i> PM IN
+                                </button>
+                                <button type="button" class="inout-btn" data-mode="pm-out" onclick="selectManualMode(this)">
+                                    <i class="fas fa-moon"></i> PM OUT
+                                </button>
+                            </div>
+                            <input type="hidden" id="manualScanType" value="am-in">
+                        </div>
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-plus"></i> Record Attendance
+                        </button>
+                    </form>
+                </div>
+
+                <div class="glass-card">
+                    <h2><i class="fas fa-list-check"></i> All Attendance Records</h2>
+                    <div class="filter-bar">
+                        <div class="form-group">
+                            <label>Filter by Year</label>
+                            <select id="filterYear" onchange="applyFilters()">
+                                <option value="">All Years</option>
+                                <option value="1">1st Year</option>
+                                <option value="2">2nd Year</option>
+                                <option value="3">3rd Year</option>
+                                <option value="4">4th Year</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Filter by Section</label>
+                            <select id="filterSection" onchange="applyFilters()">
+                                <option value="">All Sections</option>
+                                <option value="A">Section A</option>
+                                <option value="B">Section B</option>
+                                <option value="C">Section C</option>
+                                <option value="D">Section D</option>
+                                <option value="E">Section E</option>
+                                <option value="F">Section F</option>
+                                <option value="G">Section G</option>
+                                <option value="H">Section H</option>
+                                <option value="I">Section I</option>
+                                <option value="J">Section J</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Filter by Program</label>
+                            <select id="filterProgram" onchange="applyFilters()">
+                                <option value="">All Programs</option>
+                                <option value="BSN">BS Nursing</option>
+                                <option value="BSMid">BS Midwifery</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Filter by Event</label>
+                            <select id="filterEvent" onchange="applyFilters()">
+                                <option value="">All Events</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Filter by Scan Type</label>
+                            <select id="filterScanType" onchange="applyFilters()">
+                                <option value="">All Scan Types</option>
+                                <option value="am-in">AM IN</option>
+                                <option value="am-out">AM OUT</option>
+                                <option value="pm-in">PM IN</option>
+                                <option value="pm-out">PM OUT</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
+                        <button class="btn btn-primary" onclick="exportToExcel('filtered')">
+                            <i class="fas fa-file-excel"></i> Download Filtered
+                        </button>
+                        <button class="btn btn-success" onclick="exportToExcel('all')">
+                            <i class="fas fa-file-excel"></i> Download All Records
+                        </button>
+                        <button class="btn btn-danger" onclick="clearAllRecords()">
+                            <i class="fas fa-trash"></i> Clear All
+                        </button>
+                        <div style="margin-left: auto; display: flex; gap: 10px; align-items: center;">
+                            <label class="file-upload-btn" for="csvUpload">
+                                <i class="fas fa-upload"></i> Import CSV
+                            </label>
+                            <input type="file" id="csvUpload" accept=".csv" onchange="importCSV(event)">
+                        </div>
+                    </div>
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                        <div class="pagination-info" id="paginationInfo">
+                            <span class="sync-badge"><i class="fas fa-bolt"></i> Live: Today Only</span>
+                            <span id="paginationText">Loading records...</span>
+                        </div>
+                        <p style="color: rgba(255,255,255,0.5); font-size: 0.8rem; margin: 0;">
+                            <i class="fas fa-circle-info" style="margin-right: 4px;"></i>Export to view full history
+                        </p>
+                    </div>
+<div class="table-container">
+                        <table id="moderatorRecordsTable">
+                            <thead>
+                                <tr>
+                                    <th>Student ID</th>
+                                    <th>Last Name</th>
+                                    <th>Given Name</th>
+                                    <th>M.I.</th>
+                                    <th>Program</th>
+                                    <th>Year</th>
+                                    <th>Section</th>
+                                    <th>Event</th>
+                                    <th>Date</th>
+                                    <th>Time</th>
+                                    <th>Status</th>
+                                    <th>Scan Type</th>
+                                    <th>Method</th>
+                                </tr>
+                            </thead>
+                            <tbody id="moderatorRecordsBody">
+                                <tr>
+                                    <td colspan="13" style="text-align: center; color: rgba(255,255,255,0.5);">
+                                        No records yet. Use QR scan or manual entry to add attendance.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-section">
+                <h3><i class="fas fa-school"></i> San Isidro College</h3>
+                <p>Established in 1949</p>
+                <p>Impalambong, Malaybalay City</p>
+                <p>Bukidnon, Philippines</p>
+                <p style="margin-top: 10px;">School of Nursing &amp; Midwifery</p>
+            </div>
+            <div class="footer-section">
+                <h3><i class="fas fa-location-dot"></i> Location</h3>
+                <p>Impalambong, Malaybalay City</p>
+                <p>Bukidnon, Philippines</p>
+            </div>
+            <div class="footer-section">
+                <h3><i class="fas fa-share-nodes"></i> Follow Us</h3>
+                <p style="margin-bottom: 8px;"><strong>San Isidro College</strong> Official Pages</p>
+                <div class="social-links">
+                    <a href="https://www.facebook.com/share/1Egs8oQup4/" target="_blank" title="SIC Nursing &amp; Midwifery"><i class="fab fa-facebook-f"></i></a>
+                    <a href="https://www.facebook.com/share/1JLfSeDAWJ/" target="_blank" title="SIC Nursing"><i class="fab fa-facebook-f"></i></a>
+                    <a href="https://www.facebook.com/share/1D4JjscnZL/" target="_blank" title="SIC Official"><i class="fab fa-facebook-f"></i></a>
+                    <a href="https://www.tiktok.com/@sanisidrocollege" target="_blank" title="SIC TikTok"><i class="fab fa-tiktok"></i></a>
+                    <a href="https://sic.edu.ph" target="_blank" title="SIC Website"><i class="fas fa-globe"></i></a>
+                </div>
+                <p style="margin-top: 12px; font-size: 0.85rem; color: rgba(255,255,255,0.6);">
+                    FB: SIC Nursing &amp; Midwifery, SIC Nursing, SIC Official<br>
+                    TikTok: @sanisidrocollege
+                </p>
+            </div>
+            <div class="footer-section">
+                <h3><i class="fas fa-circle-info"></i> Quick Links</h3>
+                <p><a href="#" onclick="switchTab('student'); return false;">Student Portal</a></p>
+                <p><a href="#" onclick="switchTab('moderator'); return false;">Moderator Dashboard</a></p>
+                <p><a href="https://sic.edu.ph" target="_blank">Official Website</a></p>
+                <p><a href="#" onclick="showToast('Helpdesk coming soon!', 'info'); return false;">Help &amp; Support</a></p>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2026 San Isidro College. All rights reserved. | Online Attendance System</p>
+            <p style="margin-top: 5px; font-size: 0.8rem;">Ora et Labora &mdash; Pray and Work</p>
+        </div>
+    </footer>
+
+    <div class="toast" id="toast">
+        <i class="fas fa-check-circle" id="toastIcon"></i>
+        <span id="toastMessage">Notification</span>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <script>
+        // ==================== FIREBASE CONFIGURATION ====================
+        const firebaseConfig = {
+            apiKey: "AIzaSyB2hptGRHODLQSgMwUGYqpJN-1jEGP-Hqc",
+            authDomain: "nursing-attendanceman.firebaseapp.com",
+            databaseURL: "https://nursing-attendanceman-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "nursing-attendanceman",
+            storageBucket: "nursing-attendanceman.firebasestorage.app",
+            messagingSenderId: "885121586328",
+            appId: "1:885121586328:web:e5eb1f9230e821fedb2ced"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        const attendanceRef = database.ref('attendance');
+        const eventsRef = database.ref('events');
+        const widgetRef = database.ref('widget');
+        const studentsRef = database.ref('registeredStudents');
+
+        // ==================== CONNECTION STATUS ====================
+        const syncIndicator = document.getElementById('syncIndicator');
+        database.ref('.info/connected').on('value', (snap) => {
+            if (snap.val() === true) {
+                syncIndicator.className = 'sync-indicator connected';
+                syncIndicator.innerHTML = '<i class="fas fa-circle"></i><span>Live Sync</span>';
+            } else {
+                syncIndicator.className = 'sync-indicator disconnected';
+                syncIndicator.innerHTML = '<i class="fas fa-circle"></i><span>Offline</span>';
+            }
+        });
+
+
+        // ==================== DATA STATE ====================
+        let attendanceRecords = [];
+        let registeredStudents = [];
+        let events = [];
+        let widgetItems = [];
+        let currentStudent = JSON.parse(localStorage.getItem('sic_currentStudent')) || null;
+        let html5QrCode = null;
+        let isScanning = false;
+        const scannedCache = new Map();
+        const MODERATOR_PASSWORD = 'NURSINGORAETLABORA';
+        const LATE_THRESHOLD_MINUTES = 15;
+        // Short camera debounce prevents the same QR frame from firing repeatedly.
+        // Firebase record keys below provide the real duplicate-prevention guarantee.
+        const SCAN_COOLDOWN_MS = 1200;
+        const QR_EXPIRY_MS = 24 * 60 * 60 * 1000;
+        const pendingAttendanceKeys = new Set();
+        let scanProcessing = false;
+        let lastDuplicateFeedbackAt = 0;
+        const TABLE_PAGE_SIZE = 50;
+        let todayAttendanceRef = null;
+        let studentHistoryRef = null;
+        let currentDateKey = getTodayKey();
+
+        // ==================== DATE HELPERS ====================
+        function getTodayKey(date = new Date()) {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        function getTodayLocaleDate() {
+            return new Date().toLocaleDateString('en-PH');
+        }
+
+        // ==================== TODAY'S ATTENDANCE LISTENER (Paginated Live Sync) ====================
+        function setupTodayListener() {
+            if (todayAttendanceRef) todayAttendanceRef.off();
+            const todayKey = getTodayKey();
+            currentDateKey = todayKey;
+
+            todayAttendanceRef = attendanceRef.orderByChild('dateKey').equalTo(todayKey);
+            todayAttendanceRef.on('value', (snapshot) => {
+                const data = snapshot.val();
+                attendanceRecords = data ? Object.values(data).map(record => ({
+                    ...record,
+                    id: normalizeStudentId(record.id)
+                })).sort((a, b) => 
+                    new Date(b.timestamp) - new Date(a.timestamp)
+                ) : [];
+                applyFilters();
+                updateStats();
+                renderAttendanceMatrix();
+            }, (err) => {
+                console.error('Attendance sync error:', err);
+                showToast('Sync error. Retrying...', 'error');
+            });
+        }
+
+        // ==================== STUDENT HISTORY LISTENER ====================
+        function setupStudentHistory(studentId) {
+            if (studentHistoryRef) studentHistoryRef.off();
+            if (!studentId) return;
+
+            studentHistoryRef = attendanceRef.orderByChild('id').equalTo(studentId).limitToLast(50);
+            studentHistoryRef.on('value', (snapshot) => {
+                const data = snapshot.val();
+                const history = data ? Object.values(data).sort((a, b) => 
+                    new Date(b.timestamp) - new Date(a.timestamp)
+                ) : [];
+                renderStudentHistory(history);
+            }, (err) => {
+                console.error('History sync error:', err);
+            });
+        }
+
+        // ==================== DAY CHANGE DETECTOR ====================
+        setInterval(() => {
+            const newDateKey = getTodayKey();
+            if (newDateKey !== currentDateKey) {
+                currentDateKey = newDateKey;
+                setupTodayListener();
+                showToast('New day! Sync refreshed for ' + newDateKey, 'info');
+            }
+        }, 60000);
+
+        // ==================== REAL-TIME LISTENERS (Other) ====================
+        studentsRef.on('value', (snapshot) => {
+            const data = snapshot.val();
+            registeredStudents = data ? Object.values(data).map(student => ({
+                ...student,
+                id: normalizeStudentId(student.id)
+            })) : [];
+            updateStats();
+        });
+
+        eventsRef.on('value', (snapshot) => {
+            const data = snapshot.val();
+            events = data ? Object.values(data) : [];
+            renderEvents();
+            populateQREventSelector();
+            populateMatrixEventSelector();
+            populateScanEventSelector();
+            renderAttendanceMatrix();
+        });
+
+        widgetRef.on('value', (snapshot) => {
+            const data = snapshot.val();
+            widgetItems = data ? Object.values(data).reverse() : [];
+            renderWidget();
+        });
+
+        // ==================== TABS ====================
+        function switchTab(tabName) {
+            if (tabName !== 'moderator') {
+                stopScanner();
+            }
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(tabName).classList.add('active');
+            const buttons = document.querySelectorAll('.tab-btn');
+            buttons.forEach(btn => {
+                if (btn.getAttribute('onclick').includes(tabName)) btn.classList.add('active');
+            });
+        }
+
+        // ==================== TOAST ====================
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const icon = document.getElementById('toastIcon');
+            const msg = document.getElementById('toastMessage');
+            toast.className = 'toast ' + type;
+            msg.textContent = message;
+            const icons = { success: 'fa-check-circle', error: 'fa-circle-xmark', info: 'fa-circle-info' };
+            icon.className = 'fas ' + icons[type];
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        // ==================== UNIFORM SELECTOR ====================
+        function selectUniform(element) {
+            document.querySelectorAll('.uniform-option').forEach(opt => opt.classList.remove('selected'));
+            element.classList.add('selected');
+            document.getElementById('selectedUniform').value = element.dataset.uniform;
+        }
+
+        // ==================== IN/OUT MODE SELECTORS ====================
+        function selectScanMode(element) {
+            const parent = element.parentElement;
+            parent.querySelectorAll('.inout-btn').forEach(btn => btn.classList.remove('selected'));
+            element.classList.add('selected');
+            document.getElementById('scanMode').value = element.dataset.mode;
+        }
+
+        function selectManualMode(element) {
+            const parent = element.parentElement;
+            parent.querySelectorAll('.inout-btn').forEach(btn => btn.classList.remove('selected'));
+            element.classList.add('selected');
+            document.getElementById('manualScanType').value = element.dataset.mode;
+        }
+
+        // ==================== DATE FORMATTING ====================
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            const months = ['Jan.', 'Feb.', 'Mar.', 'Apr.', 'May', 'Jun.', 'Jul.', 'Aug.', 'Sep.', 'Oct.', 'Nov.', 'Dec.'];
+            const d = new Date(dateStr + 'T00:00:00');
+            if (isNaN(d.getTime())) return dateStr;
+            const month = months[d.getMonth()];
+            const day = d.getDate();
+            const year = d.getFullYear();
+            return month + ' ' + day + ', ' + year;
+        }
+
+        function formatDateShort(dateStr) {
+            if (!dateStr) return '';
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const d = new Date(dateStr + 'T00:00:00');
+            if (isNaN(d.getTime())) return dateStr;
+            return months[d.getMonth()] + ' ' + d.getDate();
+        }
+
+        // ==================== EVENT MANAGEMENT ====================
+        function createEventCard(event, isModerator) {
+            const uniformClass = event.uniform === 'White Clinical Uniform' ? 'uniform-white' : 
+                                event.uniform === 'Polo Shirt' ? 'uniform-polo' : 'uniform-civilian';
+            const uniformIcon = event.uniform === 'White Clinical Uniform' ? 'fa-user-nurse' : 
+                               event.uniform === 'Polo Shirt' ? 'fa-shirt' : 'fa-vest';
+            const deleteBtn = isModerator ? 
+                `<button class="btn btn-danger" style="padding: 8px 20px; font-size: 0.85rem; margin-top: 15px;" onclick="deleteEvent('${event.id}')">
+                    <i class="fas fa-trash"></i> Delete Event
+                </button>` : '';
+            return `
+                <div class="event-card" data-event-id="${event.id}">
+                    <h3><i class="fas fa-calendar-day"></i> ${event.name}</h3>
+                    <div class="event-details">
+                        <div class="event-detail"><i class="fas fa-calendar"></i><span>${formatDate(event.date)}</span></div>
+                        <div class="event-detail"><i class="fas fa-clock"></i><span>${event.time}</span></div>
+                        <div class="event-detail"><i class="fas fa-location-dot"></i><span>${event.venue}</span></div>
+                        <div class="event-detail"><i class="fas ${uniformIcon}"></i><span class="event-badge ${uniformClass}">${event.uniform}</span></div>
+                    </div>
+                    ${event.notes ? `<p style="color: rgba(255,255,255,0.7); margin-top: 12px; font-size: 0.9rem; line-height: 1.5;"><i class="fas fa-note-sticky" style="margin-right: 8px;"></i>${event.notes}</p>` : ''}
+                    ${deleteBtn}
+                </div>
+            `;
+        }
+
+        function renderEvents() {
+            const studentList = document.getElementById('studentEventsList');
+            const moderatorList = document.getElementById('moderatorEventsList');
+            const eventSelects = document.querySelectorAll('#scanEventSelect, #manualEvent');
+
+            if (events.length === 0) {
+                if (studentList) studentList.innerHTML = `
+                    <p style="color: rgba(255,255,255,0.6); text-align: center; padding: 30px;">
+                        <i class="fas fa-calendar-xmark" style="font-size: 2rem; display: block; margin-bottom: 10px;"></i>
+                        No events scheduled yet. Check back soon!
+                    </p>`;
+                if (moderatorList) moderatorList.innerHTML = `
+                    <p style="color: rgba(255,255,255,0.6); text-align: center; padding: 30px;">
+                        <i class="fas fa-calendar-plus" style="font-size: 2rem; display: block; margin-bottom: 10px;"></i>
+                        No events created yet. Create your first event above.
+                    </p>`;
+            } else {
+                const cards = events.map(e => createEventCard(e, false)).join('');
+                if (studentList) studentList.innerHTML = cards;
+                const moderatorCards = events.map(e => createEventCard(e, true)).join('');
+                if (moderatorList) moderatorList.innerHTML = moderatorCards;
+            }
+
+            populateQREventSelector();
+
+            eventSelects.forEach(select => {
+                const currentValue = select.value;
+                select.innerHTML = '<option value="">General Attendance</option>';
+                events.forEach(e => {
+                    const option = document.createElement('option');
+                    option.value = e.id;
+                    option.textContent = `${e.name} (${formatDateShort(e.date)})`;
+                    select.appendChild(option);
+                });
+                select.value = currentValue;
+            });
+        }
+
+        document.getElementById('createEventForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const eventId = 'evt_' + Date.now();
+            const event = {
+                id: eventId,
+                name: document.getElementById('eventName').value.trim(),
+                date: document.getElementById('eventDate').value,
+                time: document.getElementById('eventTime').value,
+                venue: document.getElementById('eventVenue').value.trim(),
+                uniform: document.getElementById('selectedUniform').value,
+                notes: document.getElementById('eventNotes').value.trim(),
+                createdAt: new Date().toISOString()
+            };
+            if (!event.uniform) {
+                showToast('Please select a required uniform!', 'error');
+                return;
+            }
+            eventsRef.child(eventId).set(event)
+                .then(() => {
+                    this.reset();
+                    document.querySelectorAll('.uniform-option').forEach(opt => opt.classList.remove('selected'));
+                    showToast('Event created successfully!', 'success');
+                })
+                .catch(err => showToast('Error: ' + err.message, 'error'));
+        });
+
+        function deleteEvent(eventId) {
+            const event = events.find(e => e.id === eventId);
+            const eventName = event ? event.name : 'this event';
+            if (confirm(`Delete "${eventName}"?\n\nThis action cannot be undone.`)) {
+                eventsRef.child(eventId).remove()
+                    .then(() => showToast('Event "' + eventName + '" deleted.', 'info'))
+                    .catch(err => showToast('Error: ' + err.message, 'error'));
+            }
+        }
+
+        // ==================== WIDGET MANAGEMENT ====================
+        function renderWidget() {
+            const widgetContent = document.getElementById('widgetContent');
+            const widgetItemsList = document.getElementById('widgetItemsList');
+            const studentAnnouncementsList = document.getElementById('studentAnnouncementsList');
+
+            if (widgetItems.length === 0) {
+                if (widgetContent) widgetContent.innerHTML = `
+                    <div class="widget-item">
+                        <p>Welcome to SIC Online Attendance System!</p>
+                        <small>Posted by Moderator</small>
+                    </div>`;
+                if (widgetItemsList) widgetItemsList.innerHTML = '<p style="color: rgba(255,255,255,0.5); font-size: 0.9rem;">No widget items yet.</p>';
+                if (studentAnnouncementsList) studentAnnouncementsList.innerHTML = `
+                    <p style="color: rgba(255,255,255,0.6); text-align: center; padding: 20px;">
+                        <i class="fas fa-bullhorn" style="font-size: 2rem; display: block; margin-bottom: 10px;"></i>
+                        No announcements yet.
+                    </p>`;
+            } else {
+                const itemsHtml = widgetItems.map(item => `
+                    <div class="widget-item">
+                        <p><strong>${item.title}</strong> &mdash; ${item.message}</p>
+                        <small>${item.urgency.toUpperCase()} &mdash; ${new Date(item.timestamp).toLocaleDateString()}</small>
+                    </div>
+                `).join('');
+                if (widgetContent) widgetContent.innerHTML = itemsHtml;
+                if (widgetItemsList) widgetItemsList.innerHTML = widgetItems.map((item) => `
+                    <div class="widget-item" style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <p><strong>${item.title}</strong></p>
+                            <small>${item.urgency.toUpperCase()}</small>
+                        </div>
+                        <button onclick="deleteWidgetItem('${item.id}')" style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 1.2rem;">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                `).join('');
+
+                if (studentAnnouncementsList) {
+                    studentAnnouncementsList.innerHTML = widgetItems.map(item => `
+                        <div class="widget-item ${item.urgency}">
+                            <strong><i class="fas fa-bullhorn" style="margin-right: 8px;"></i>${escapeHtml(item.title)}</strong>
+                            <p>${escapeHtml(item.message)}</p>
+                            <small><i class="fas fa-clock" style="margin-right: 4px;"></i>${new Date(item.timestamp).toLocaleString('en-PH')} &mdash; ${item.urgency.toUpperCase()}</small>
+                        </div>
+                    `).join('');
+                }
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        document.getElementById('widgetForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const itemId = 'widget_' + Date.now();
+            const item = {
+                id: itemId,
+                title: document.getElementById('widgetTitle').value.trim(),
+                message: document.getElementById('widgetMessage').value.trim(),
+                urgency: document.getElementById('widgetUrgency').value,
+                timestamp: new Date().toISOString()
+            };
+            widgetRef.child(itemId).set(item)
+                .then(() => {
+                    this.reset();
+                    showToast('Announcement posted to student widget!', 'success');
+                })
+                .catch(err => showToast('Error: ' + err.message, 'error'));
+        });
+
+        function deleteWidgetItem(itemId) {
+            if (confirm('Remove this announcement from the student dashboard?')) {
+                widgetRef.child(itemId).remove()
+                    .then(() => showToast('Announcement removed.', 'info'))
+                    .catch(err => showToast('Error: ' + err.message, 'error'));
+            }
+        }
+
+        // ==================== QR EXPIRY CHECK (24 HOURS) ====================
+        function isQRFresh(qrTimestamp) {
+            const now = Date.now();
+            const qrTime = new Date(qrTimestamp).getTime();
+            return (now - qrTime) <= QR_EXPIRY_MS;
+        }
+
+        function isEventActive(event) {
+            if (!event || !event.date) return false;
+            const now = new Date();
+            const eventDateKey = String(event.date);
+            // Attendance events remain valid for the whole event date after the
+            // scheduled start time. This supports AM IN/OUT and PM IN/OUT without
+            // the old fixed two-hour cutoff.
+            if (getTodayKey(now) !== eventDateKey) return false;
+            if (!event.time) return true;
+            const eventStart = new Date(`${event.date}T${event.time}`);
+            return Number.isNaN(eventStart.getTime()) ? true : now >= eventStart;
+        }
+
+        // ==================== STUDENT ID NORMALIZATION ====================
+        // Student IDs are stored/displayed as YYYY-NNNNNN (e.g. 2024-123456).
+        // If an older entry contains the legacy "SIC-" prefix, remove only that
+        // prefix while preserving the actual numeric student ID.
+        function normalizeStudentId(value) {
+            let id = String(value || '').trim();
+            id = id.replace(/^SIC[-\s:]*/i, '');
+            id = id.replace(/\s+/g, '');
+            return id;
+        }
+
+        function isValidStudentId(id) {
+            // Accept the requested YYYY-NNNNNN format.
+            return /^\d{4}-\d{6}$/.test(String(id || ''));
+        }
+
+        // ==================== STUDENT LOGIN ====================
+        document.getElementById('studentLoginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const lastName = document.getElementById('studentLastName').value.trim();
+            const givenName = document.getElementById('studentGivenName').value.trim();
+            const middleInitial = document.getElementById('studentMiddleInitial').value.trim();
+            const normalizedStudentId = normalizeStudentId(document.getElementById('studentId').value);
+            if (!isValidStudentId(normalizedStudentId)) {
+                showToast('Student ID must be in the format 2024-123456. Do not include SIC.', 'error');
+                document.getElementById('studentId').value = normalizedStudentId;
+                document.getElementById('studentId').focus();
+                return;
+            }
+
+            document.getElementById('studentId').value = normalizedStudentId;
+
+            const student = {
+                id: normalizeStudentId(document.getElementById('studentId').value),
+                lastName: lastName,
+                givenName: givenName,
+                middleInitial: middleInitial,
+                name: `${lastName}, ${givenName}${middleInitial ? ' ' + middleInitial + '.' : ''}`,
+                program: document.getElementById('studentProgram').value,
+                year: document.getElementById('studentYear').value,
+                section: document.getElementById('studentSection').value,
+                timestamp: new Date().toISOString()
+            };
+
+            currentStudent = student;
+            localStorage.setItem('sic_currentStudent', JSON.stringify(student));
+
+            const studentRegId = 'stud_' + student.id.replace(/[^a-zA-Z0-9]/g, '_');
+            studentsRef.child(studentRegId).set(student)
+                .then(() => {
+                    showToast('Welcome, ' + givenName + ' ' + lastName + '!', 'success');
+                    showQRGenerationCard();
+                })
+                .catch(err => showToast('Error: ' + err.message, 'error'));
+        });
+
+        function showQRGenerationCard() {
+            document.getElementById('studentLoginCard').style.display = 'none';
+            document.getElementById('qrGenerationCard').style.display = 'block';
+            const infoDiv = document.getElementById('loggedInStudentInfo');
+            infoDiv.innerHTML = `
+                <p><strong>Student ID:</strong> ${escapeHtml(currentStudent.id)}</p>
+                <p><strong>Name:</strong> ${escapeHtml(currentStudent.lastName)}, ${escapeHtml(currentStudent.givenName)}${currentStudent.middleInitial ? ' ' + escapeHtml(currentStudent.middleInitial) + '.' : ''}</p>
+                <p><strong>Program:</strong> ${currentStudent.program === 'BSN' ? 'BS Nursing' : 'BS Midwifery'}</p>
+                <p><strong>Year:</strong> ${escapeHtml(currentStudent.year)}${getOrdinal(currentStudent.year)} Year</p>
+                <p><strong>Section:</strong> ${escapeHtml(currentStudent.section)}</p>
+            `;
+            setupStudentHistory(currentStudent.id);
+        }
+
+        function getOrdinal(n) {
+            const s = ["th", "st", "nd", "rd"];
+            const v = n % 100;
+            return s[(v - 20) % 10] || s[v] || s[0];
+        }
+
+        function clearStudentSession() {
+            currentStudent = null;
+            localStorage.removeItem('sic_currentStudent');
+            if (studentHistoryRef) {
+                studentHistoryRef.off();
+                studentHistoryRef = null;
+            }
+            document.getElementById('studentLoginForm').reset();
+            document.getElementById('studentLoginCard').style.display = 'block';
+            document.getElementById('qrGenerationCard').style.display = 'none';
+            document.getElementById('qrDisplay').innerHTML = `
+                <div class="qr-placeholder">
+                    <i class="fas fa-qrcode"></i>
+                    <p>Select an event above, then click &quot;Generate QR Code&quot;</p>
+                </div>
+            `;
+            document.getElementById('downloadBtn').style.display = 'none';
+            document.getElementById('printBtn').style.display = 'none';
+            document.getElementById('studentHistoryBody').innerHTML = `<tr><td colspan="6" style="text-align:center; color:rgba(255,255,255,0.5);">Log in to view your attendance history.</td></tr>`;
+            showToast('Logged out successfully.', 'info');
+        }
+
+        // ==================== QR GENERATION (Separate from Login) ====================
+        // ==================== QR GENERATION (UTF-8 / Ñ / SPECIAL-CHARACTER SAFE) ====================
+        // The QR now contains only a compact, ASCII-safe token instead of the
+        // student's entire name/profile. This prevents QRCode.js capacity/encoding
+        // problems caused by long names, Ñ/ñ, accents, apostrophes, emoji, etc.
+        // Student information is resolved from Firebase when the QR is scanned.
+        function populateQREventSelector(selectedEventId = '') {
+            const select = document.getElementById('qrEventSelect');
+            if (!select) return;
+            const current = selectedEventId || select.value;
+            select.innerHTML = '<option value="">Select Event</option>';
+            events.slice().sort((a, b) => {
+                const ad = new Date((a.date || '') + 'T' + (a.time || '00:00'));
+                const bd = new Date((b.date || '') + 'T' + (b.time || '00:00'));
+                return ad - bd;
+            }).forEach(event => {
+                const option = document.createElement('option');
+                option.value = event.id;
+                option.textContent = `${event.name} — ${formatDate(event.date)}${event.time ? ' ' + event.time : ''}`;
+                select.appendChild(option);
+            });
+            if (current && events.some(e => e.id === current)) select.value = current;
+        }
+
+        // ==================== EVENT-SPECIFIC QR GENERATION ====================
+        // QR format: SICATT3|encodedStudentId|encodedEventId|timestamp
+        // The QR contains only ASCII-safe identifiers, not the student's name/email.
+        function buildCompactQRPayload(student, eventId) {
+            if (!student || !student.id) throw new Error('Student ID is missing. Please log in again.');
+            if (!eventId) throw new Error('Please select the exact event for this QR code.');
+            const event = events.find(e => e.id === eventId);
+            if (!event) throw new Error('The selected event no longer exists. Please refresh the page.');
+            const encodedId = encodeURIComponent(String(student.id).trim());
+            const encodedEventId = encodeURIComponent(String(event.id).trim());
+            return `SICATT3|${encodedId}|${encodedEventId}|${new Date().toISOString()}`;
+        }
+
+        function generateQR() {
+            if (!currentStudent) {
+                showToast('Please log in first!', 'error');
+                return;
+            }
+            if (typeof QRCode === 'undefined') {
+                showToast('QR generator failed to load. Please refresh the page and try again.', 'error');
+                return;
+            }
+
+            const eventId = document.getElementById('qrEventSelect')?.value;
+            if (!eventId) {
+                showToast('Select the exact event before generating your QR code.', 'error');
+                return;
+            }
+            const event = events.find(e => e.id === eventId);
+            if (!event) {
+                showToast('Selected event could not be found. Please refresh and try again.', 'error');
+                return;
+            }
+
+            try {
+                const qrData = buildCompactQRPayload(currentStudent, eventId);
+                const display = document.getElementById('qrDisplay');
+                display.innerHTML = '';
+                const qrContainer = document.createElement('div');
+                qrContainer.id = 'qrcode';
+                display.appendChild(qrContainer);
+
+                try {
+                    new QRCode(qrContainer, { text: qrData, width: 220, height: 220, colorDark: '#1e1b4b', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.H });
+                } catch (primaryError) {
+                    qrContainer.innerHTML = '';
+                    new QRCode(qrContainer, { text: qrData, width: 220, height: 220, colorDark: '#1e1b4b', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
+                }
+
+                if (!qrContainer.querySelector('canvas, img')) throw new Error('The QR image could not be rendered.');
+
+                const info = document.createElement('div');
+                info.style.cssText = 'margin-top:15px;color:#1e1b4b;font-weight:600;font-size:.95rem;';
+                const nameLine = document.createElement('p');
+                nameLine.style.margin = '2px 0';
+                nameLine.textContent = `${currentStudent.lastName || ''}, ${currentStudent.givenName || ''}${currentStudent.middleInitial ? ' ' + currentStudent.middleInitial + '.' : ''}`;
+                const eventLine = document.createElement('p');
+                eventLine.style.cssText = 'margin:6px 0 2px;font-size:.9rem;color:#7c3aed;';
+                eventLine.textContent = `Event: ${event.name}`;
+                const dateLine = document.createElement('p');
+                dateLine.style.cssText = 'margin:2px 0;font-size:.8rem;color:#64748b;';
+                dateLine.textContent = `${formatDate(event.date)}${event.time ? ' • ' + event.time : ''}`;
+                info.append(nameLine, eventLine, dateLine);
+                display.appendChild(info);
+
+                document.getElementById('downloadBtn').style.display = 'inline-flex';
+                document.getElementById('printBtn').style.display = 'inline-flex';
+                showToast(`QR generated for ${event.name}.`, 'success');
+            } catch (err) {
+                console.error('QR generation error:', err);
+                document.getElementById('qrDisplay').innerHTML = `<div style="padding:20px;border-radius:14px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.35);color:#fecaca;"><strong>QR generation failed.</strong><br>Please try again. Names containing Ñ/ñ and other special characters are supported.</div>`;
+                document.getElementById('downloadBtn').style.display = 'none';
+                document.getElementById('printBtn').style.display = 'none';
+                showToast('Unable to generate QR code. Please try again.', 'error');
+            }
+        }
+
+        function downloadQR() {
+            const canvas = document.querySelector('#qrcode canvas');
+            if (canvas) {
+                const link = document.createElement('a');
+                link.download = 'SIC_Attendance_' + currentStudent.id + '.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                showToast('QR code downloaded!', 'success');
+            }
+        }
+
+        function printQR() {
+            const canvas = document.querySelector('#qrcode canvas');
+            if (canvas) {
+                const printWindow = window.open('', '_blank');
+                printWindow.document.write(`
+                    <html>
+                    <head><title>SIC Attendance ID - ${currentStudent.givenName} ${currentStudent.lastName}</title></head>
+                    <body style="display:flex;justify-content:center;align-items:center;height:100vh;font-family:Arial; background: linear-gradient(135deg, #1e1b4b, #4c1d95);">
+                        <div style="text-align:center; border: 3px solid #8b5cf6; padding: 40px; border-radius: 24px; background: rgba(255,255,255,0.95); box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+                            <h2 style="color: #8b5cf6; margin-bottom: 5px; font-size: 1.8rem;">San Isidro College</h2>
+                            <p style="color: #ec4899; margin: 0; font-weight: bold; font-size: 1.1rem;">ONLINE ATTENDANCE</p>
+                            <img src="${canvas.toDataURL()}" style="margin: 20px 0; width: 200px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);">
+                            <p style="font-size: 1.3rem; font-weight: bold; margin: 5px 0; color: #1e1b4b;">${currentStudent.lastName}, ${currentStudent.givenName}${currentStudent.middleInitial ? ' ' + currentStudent.middleInitial + '.' : ''}</p>
+                            <p style="color: #666; margin: 2px 0; font-size: 1rem;">${currentStudent.id}</p>
+                            <p style="color: #666; margin: 2px 0; font-size: 0.9rem;">${currentStudent.program} &mdash; Year ${currentStudent.year} &mdash; Section ${currentStudent.section}</p>
+                            <p style="color: #8b5cf6; margin-top: 15px; font-size: 0.8rem; font-weight: 600;">Ora et Labora</p>
+                        </div>
+                    </body>
+                    </html>
+                `);
+                printWindow.document.close();
+                printWindow.print();
+            }
+        }
+
+        // ==================== ATTENDANCE DEDUPLICATION HELPERS ====================
+        function makeAttendanceKey(dateKey, eventId, eventName, studentId, scanType) {
+            const clean = (value) => String(value || 'general')
+                .trim()
+                .replace(/[.#$\[\]\/]/g, '_')
+                .replace(/\s+/g, '_')
+                .substring(0, 120);
+            return `att_${clean(dateKey)}_${clean(eventId || eventName || 'general')}_${clean(scanType || 'am-in')}_${clean(studentId)}`;
+        }
+
+        function normalizeScanType(scanType) {
+            return ['am-in', 'am-out', 'pm-in', 'pm-out'].includes(scanType) ? scanType : 'am-in';
+        }
+
+        function showDuplicateScan(student, scanType) {
+            // A duplicate/rejected scan gets a distinct error tone so the moderator
+            // can identify it without looking away from the scanner.
+            playErrorSound();
+            const labels = { 'am-in': 'AM IN', 'am-out': 'AM OUT', 'pm-in': 'PM IN', 'pm-out': 'PM OUT' };
+            const label = labels[normalizeScanType(scanType)];
+            showToast(`${student.givenName || student.name || 'Student'} is already recorded for ${label}. Duplicate scan ignored.`, 'info');
+            const result = document.getElementById('scanResult');
+            if (result) {
+                result.style.display = 'block';
+                result.style.background = 'rgba(59, 130, 246, 0.2)';
+                result.style.border = '1px solid rgba(59, 130, 246, 0.5)';
+                result.style.color = '#93c5fd';
+                result.innerHTML = `<i class="fas fa-circle-info"></i> <strong>${student.givenName || ''} ${student.lastName || ''}</strong> (${student.id}) &mdash; ${label} was already recorded. No duplicate created.`;
+                setTimeout(() => { result.style.display = 'none'; }, 5000);
+            }
+        }
+
+        // ==================== RECORD ATTENDANCE WITH IN/OUT SUPPORT ====================
+        async function recordAttendance(student, subject, status, method, scanType) {
+            const now = new Date();
+            const dateKey = getTodayKey();
+            const finalScanType = normalizeScanType(scanType);
+            let finalStatus = status;
+
+            if (student.eventId && events.length > 0) {
+                const event = events.find(e => e.id === student.eventId);
+                if (event && event.time) {
+                    const eventTime = new Date(event.date + 'T' + event.time);
+                    const diffMinutes = Math.floor((now - eventTime) / (1000 * 60));
+                    if (diffMinutes > LATE_THRESHOLD_MINUTES && status === 'Present') {
+                        finalStatus = 'Late';
+                    }
+                }
+            }
+
+            const eventName = subject || 'General Attendance';
+            const recordId = makeAttendanceKey(dateKey, student.eventId, eventName, student.id, finalScanType);
+
+            // Prevent duplicate scans immediately in this browser and also use a
+            // deterministic Firebase key so simultaneous moderators cannot create
+            // another record for the same student/event/date/scan type.
+            if (pendingAttendanceKeys.has(recordId)) {
+                showDuplicateScan(student, finalScanType);
+                return false;
+            }
+            pendingAttendanceKeys.add(recordId);
+
+            try {
+                const existing = await attendanceRef.child(recordId).once('value');
+                if (existing.exists()) {
+                    showDuplicateScan(student, finalScanType);
+                    return false;
+                }
+
+                // Legacy duplicate check is scoped to this student instead of downloading
+                // every attendance record for the day. This keeps scanning fast as records grow.
+                const studentSnapshot = await attendanceRef.orderByChild('id').equalTo(student.id).once('value');
+                const studentData = studentSnapshot.val() || {};
+                const legacyDuplicate = Object.values(studentData).some(record =>
+                    String(record.dateKey || '') === dateKey &&
+                    String(record.eventId || record.event || 'General Attendance') === String(student.eventId || eventName) &&
+                    normalizeScanType(record.scanType) === finalScanType
+                );
+                if (legacyDuplicate) {
+                    showDuplicateScan(student, finalScanType);
+                    return false;
+                }
+
+                const record = {
+                    id: student.id,
+                    lastName: student.lastName || '',
+                    givenName: student.givenName || '',
+                    middleInitial: student.middleInitial || '',
+                    name: student.name || `${student.lastName || ''}, ${student.givenName || ''}${student.middleInitial ? ' ' + student.middleInitial + '.' : ''}`,
+                    program: student.program,
+                    year: student.year,
+                    section: student.section || 'N/A',
+                    event: eventName,
+                    eventId: student.eventId || '',
+                    date: now.toLocaleDateString('en-PH'),
+                    dateKey: dateKey,
+                    time: now.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+                    status: finalStatus,
+                    scanType: finalScanType,
+                    method: method,
+                    timestamp: now.toISOString()
+                };
+
+                await attendanceRef.child(recordId).set(record);
+
+                const typeLabels = {
+                    'am-in': 'AM IN',
+                    'am-out': 'AM OUT',
+                    'pm-in': 'PM IN',
+                    'pm-out': 'PM OUT'
+                };
+                const label = typeLabels[finalScanType];
+                showToast(`${student.givenName || student.name} marked ${finalStatus} (${label})`, 'success');
+                return true;
+            } catch (err) {
+                showToast('Error saving: ' + err.message, 'error');
+                return false;
+            } finally {
+                pendingAttendanceKeys.delete(recordId);
+            }
+        }
+
+        // ==================== MODERATOR LOGIN ====================
+        if (sessionStorage.getItem('sic_moderator_logged_in') === 'true') {
+            document.getElementById('moderatorLoginCard').style.display = 'none';
+            document.getElementById('moderatorDashboard').style.display = 'block';
+        }
+
+        document.getElementById('moderatorLoginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const password = document.getElementById('moderatorPassword').value;
+            if (password === MODERATOR_PASSWORD) {
+                document.getElementById('moderatorLoginCard').style.display = 'none';
+                document.getElementById('moderatorDashboard').style.display = 'block';
+                sessionStorage.setItem('sic_moderator_logged_in', 'true');
+                showToast('Welcome, Moderator! Dashboard loaded.', 'success');
+            } else {
+                showToast('Incorrect password. Please try again.', 'error');
+            }
+        });
+
+        // ==================== AUDIO FEEDBACK ====================
+        let audioCtx = null;
+        function getAudioContext() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            return audioCtx;
+        }
+
+        function playSuccessSound() {
+            try {
+                const ctx = getAudioContext();
+                if (ctx.state === 'suspended') ctx.resume();
+
+                const now = ctx.currentTime;
+
+                // First note - pleasant chime
+                const osc1 = ctx.createOscillator();
+                const gain1 = ctx.createGain();
+                osc1.type = 'sine';
+                osc1.frequency.setValueAtTime(880, now); // A5
+                osc1.frequency.exponentialRampToValueAtTime(1760, now + 0.08);
+                gain1.gain.setValueAtTime(0.15, now);
+                gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+                osc1.connect(gain1);
+                gain1.connect(ctx.destination);
+                osc1.start(now);
+                osc1.stop(now + 0.25);
+
+                // Second note - harmony
+                const osc2 = ctx.createOscillator();
+                const gain2 = ctx.createGain();
+                osc2.type = 'sine';
+                osc2.frequency.setValueAtTime(1109, now + 0.05); // C#6
+                osc2.frequency.exponentialRampToValueAtTime(2217, now + 0.13);
+                gain2.gain.setValueAtTime(0.12, now + 0.05);
+                gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+                osc2.connect(gain2);
+                gain2.connect(ctx.destination);
+                osc2.start(now + 0.05);
+                osc2.stop(now + 0.3);
+
+            } catch (e) {
+                // Audio not supported or blocked - silently fail
+            }
+        }
+
+        function playErrorSound() {
+            try {
+                const ctx = getAudioContext();
+                if (ctx.state === 'suspended') ctx.resume();
+                const now = ctx.currentTime;
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(200, now);
+                osc.frequency.linearRampToValueAtTime(100, now + 0.3);
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.3);
+            } catch (e) {}
+        }
+
+        // ==================== QR SCANNER WITH IN/OUT & 24HR EXPIRY ====================
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, ch => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[ch]));
+        }
+
+        // ==================== QR PARSING / STUDENT RESOLUTION ====================
+        function parseAttendanceQR(decodedText) {
+            const text = String(decodedText || '').trim();
+            if (!text) throw new Error('Empty QR code.');
+
+            // Current event-specific format: SICATT3|encodedStudentId|encodedEventId|ISO_TIMESTAMP
+            if (text.indexOf('SICATT3|') === 0) {
+                const parts = text.split('|');
+                if (parts.length < 4 || !parts[1] || !parts[2] || !parts[3]) throw new Error('Incomplete event-specific attendance QR code.');
+                try {
+                    return { version: 3, id: normalizeStudentId(decodeURIComponent(parts[1])), eventId: decodeURIComponent(parts[2]), timestamp: parts.slice(3).join('|') };
+                } catch (e) {
+                    throw new Error('Invalid QR encoding.');
+                }
+            }
+
+            // Previous compact format remains readable. It has no event binding, so it
+            // is allowed only as a legacy QR when the moderator explicitly selects an event.
+            if (text.indexOf('SICATT2|') === 0) {
+                const parts = text.split('|');
+                if (parts.length < 3 || !parts[1] || !parts[2]) throw new Error('Incomplete attendance QR code.');
+                try {
+                    return { version: 2, id: normalizeStudentId(decodeURIComponent(parts[1])), timestamp: parts.slice(2).join('|') };
+                } catch (e) { throw new Error('Invalid student ID encoding.'); }
+            }
+
+            // Backward compatibility: accept QR codes generated by the old version
+            // that stored the student's full JSON profile in the QR.
+            try {
+                const legacy = JSON.parse(text);
+                legacy.id = normalizeStudentId(legacy.id);
+                if (!legacy.id || !legacy.timestamp) {
+                    throw new Error('Missing student ID or timestamp.');
+                }
+                return legacy;
+            } catch (e) {
+                throw new Error('Unrecognized attendance QR format.');
+            }
+        }
+
+        async function resolveStudentFromQR(data) {
+            if (!data || !data.id) {
+                throw new Error('Student ID is missing from the QR code.');
+            }
+
+            // New QR format contains only the ID. First use the live local cache.
+            let student = registeredStudents.find(s => String(s.id) === String(data.id));
+
+            // If the cache has not loaded yet, fetch the exact Firebase registration.
+            if (!student) {
+                const normalizedId = normalizeStudentId(data.id);
+                const studentRegId = 'stud_' + normalizedId.replace(/[^a-zA-Z0-9]/g, '_');
+                const snapshot = await studentsRef.child(studentRegId).once('value');
+                if (snapshot.exists()) {
+                    student = snapshot.val();
+                }
+            }
+
+            // Backward compatibility for students registered by an older version
+            // that stored the legacy SIC-YYYY-NNNNNN identifier.
+            if (!student) {
+                const normalizedId = normalizeStudentId(data.id);
+                const legacyId = 'SIC-' + normalizedId;
+                const legacyRegId = 'stud_' + legacyId.replace(/[^a-zA-Z0-9]/g, '_');
+                const legacySnapshot = await studentsRef.child(legacyRegId).once('value');
+                if (legacySnapshot.exists()) {
+                    student = legacySnapshot.val();
+                    student.id = normalizedId;
+                }
+            }
+
+            if (!student) {
+                throw new Error('Student ID ' + data.id + ' is not registered in the system.');
+            }
+
+            return {
+                id: student.id,
+                lastName: student.lastName || '',
+                givenName: student.givenName || '',
+                middleInitial: student.middleInitial || '',
+                name: student.name || `${student.lastName || ''}, ${student.givenName || ''}${student.middleInitial ? ' ' + student.middleInitial + '.' : ''}`,
+                program: student.program || '',
+                year: student.year || '',
+                section: student.section || 'N/A',
+                eventId: student.eventId || ''
+            };
+        }
+
+        async function validateScan(data, eventId) {
+            const event = eventId ? events.find(e => e.id === eventId) : null;
+            if (!data || !data.timestamp || !isQRFresh(data.timestamp)) {
+                return { valid: false, reason: 'QR code expired (older than 24 hours). Please regenerate.' };
+            }
+            if (event && !isEventActive(event)) {
+                return { valid: false, reason: 'Event is not currently active. Check event date and time.' };
+            }
+            return { valid: true };
+        }
+
+        function determineScanType(mode) {
+            const currentHour = new Date().getHours();
+            if (mode === 'both') {
+                if (currentHour < 12) return 'am-in';
+                if (currentHour < 18) return 'pm-in';
+                return 'pm-out';
+            }
+            return mode;
+        }
+
+        async function stopScanner() {
+            if (html5QrCode && isScanning) {
+                try {
+                    await html5QrCode.stop();
+                } catch (e) {}
+                isScanning = false;
+            }
+        }
+
+        async function startScanner() {
+            if (isScanning) {
+                showToast('Scanner is already running.', 'info');
+                return;
+            }
+
+            const container = document.getElementById('scannerContainer');
+            container.innerHTML = '<div id="reader" style="width:100%; border-radius:20px; overflow:hidden;"></div>';
+
+            html5QrCode = new Html5Qrcode("reader");
+            isScanning = true;
+
+            try {
+                await html5QrCode.start(
+                    { facingMode: "environment" },
+                    { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0, disableFlip: true },
+                    async (decodedText) => {
+                        if (scanProcessing) return;
+                        const now = Date.now();
+
+                        const lastScan = scannedCache.get(decodedText);
+                        if (lastScan && (now - lastScan) < SCAN_COOLDOWN_MS) {
+                            // The camera may decode the same QR repeatedly before the
+                            // previous scan finishes. Reject the repeat audibly, but
+                            // throttle the feedback so the scanner does not beep every frame.
+                            if (now - lastDuplicateFeedbackAt >= 700) {
+                                lastDuplicateFeedbackAt = now;
+                                playErrorSound();
+                            }
+                            return;
+                        }
+                        scannedCache.set(decodedText, now);
+                        scanProcessing = true;
+
+                        if (scannedCache.size > 200) {
+                            const cutoff = now - 60000;
+                            for (const [key, time] of scannedCache) {
+                                if (time < cutoff) scannedCache.delete(key);
+                            }
+                        }
+
+                        try {
+                            const data = parseAttendanceQR(decodedText);
+                            const eventSelect = document.getElementById('scanEventSelect');
+                            let selectedEventId = eventSelect.value;
+                            const qrEventId = data.eventId || '';
+
+                            if (data.version === 3 && !qrEventId) {
+                                throw new Error('This QR code is missing its event information. Please generate a new QR for the exact event.');
+                            }
+                            if (qrEventId && selectedEventId && qrEventId !== selectedEventId) {
+                                const qrEvent = events.find(e => e.id === qrEventId);
+                                throw new Error(`Wrong event. This QR is for “${qrEvent ? qrEvent.name : 'another event'}”. Select the matching event before scanning.`);
+                            }
+                            const eventId = qrEventId || selectedEventId;
+                            if (!eventId) {
+                                throw new Error('Select the event being scanned.');
+                            }
+                            if (qrEventId && eventSelect.value !== qrEventId) eventSelect.value = qrEventId;
+                            const scanMode = document.getElementById('scanMode').value;
+
+                            const validation = await validateScan(data, eventId);
+                            if (!validation.valid) {
+                                playErrorSound();
+                                showToast('Scan rejected: ' + validation.reason, 'error');
+                                const result = document.getElementById('scanResult');
+                                result.style.display = 'block';
+                                result.style.background = 'rgba(239, 68, 68, 0.2)';
+                                result.style.border = '1px solid rgba(239, 68, 68, 0.5)';
+                                result.style.color = '#fca5a5';
+                                result.innerHTML = `<i class="fas fa-circle-xmark"></i> <strong>Scan Rejected</strong><br>${validation.reason}`;
+                                setTimeout(() => { result.style.display = 'none'; }, 5000);
+                                return;
+                            }
+
+                            const student = await resolveStudentFromQR(data);
+
+                            const eventName = eventId ? events.find(e => e.id === eventId)?.name : 'QR Scan Check-in';
+                            if (eventId) student.eventId = eventId;
+
+                            const finalScanType = determineScanType(scanMode);
+                            const saved = await recordAttendance(student, eventName || 'QR Scan Check-in', 'Present', 'QR Scan', finalScanType);
+                            if (!saved) {
+                                return;
+                            }
+
+                            playSuccessSound();
+
+                            const typeLabels = { 'am-in': 'AM IN', 'am-out': 'AM OUT', 'pm-in': 'PM IN', 'pm-out': 'PM OUT' };
+                            const label = typeLabels[finalScanType];
+
+                            const result = document.getElementById('scanResult');
+                            result.style.display = 'block';
+                            result.style.background = 'rgba(16, 185, 129, 0.2)';
+                            result.style.border = '1px solid rgba(16, 185, 129, 0.5)';
+                            result.style.color = '#6ee7b7';
+                            result.innerHTML = `<i class="fas fa-check-circle"></i> <strong>${escapeHtml(student.givenName)} ${escapeHtml(student.lastName)}</strong> (${escapeHtml(student.id)}) &mdash; ${label} recorded at ${new Date().toLocaleTimeString('en-PH')}`;
+                            setTimeout(() => { result.style.display = 'none'; }, 5000);
+
+                        } catch (err) {
+                            // Rejected/invalid scans also receive the rejection tone so
+                            // the moderator gets immediate audio feedback.
+                            playErrorSound();
+                            const message = err && err.message ? err.message : 'Invalid QR code format';
+                            showToast(message, 'error');
+                            const result = document.getElementById('scanResult');
+                            if (result) {
+                                result.style.display = 'block';
+                                result.style.background = 'rgba(239, 68, 68, 0.2)';
+                                result.style.border = '1px solid rgba(239, 68, 68, 0.5)';
+                                result.style.color = '#fca5a5';
+                                result.innerHTML = `<i class="fas fa-circle-xmark"></i> <strong>Scan Rejected</strong><br>${escapeHtml(message)}`;
+                                setTimeout(() => { result.style.display = 'none'; }, 5000);
+                            }
+                        } finally {
+                            // Allow the next QR after the current scan has been fully
+                            // validated/saved. The short cache still blocks camera repeats.
+                            scanProcessing = false;
+                        }
+                    },
+                    (error) => {}
+                );
+            } catch (err) {
+                isScanning = false;
+                showToast('Camera access denied or not available.', 'error');
+                container.innerHTML = `
+                    <div style="background: rgba(239,68,68,0.2); border-radius: 20px; padding: 40px; text-align: center; color: white;">
+                        <i class="fas fa-video-slash" style="font-size: 3rem; margin-bottom: 15px;"></i>
+                        <p>Camera not available</p>
+                        <p style="font-size: 0.9rem; opacity: 0.7; margin-top: 10px;">Please use manual entry instead</p>
+                    </div>
+                `;
+            }
+        }
+
+        // ==================== MANUAL ENTRY ====================
+        document.getElementById('manualEntryForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const lastName = document.getElementById('manualLastName').value.trim();
+            const givenName = document.getElementById('manualGivenName').value.trim();
+            const middleInitial = document.getElementById('manualMiddleInitial').value.trim();
+
+            const student = {
+                id: normalizeStudentId(document.getElementById('manualId').value),
+                lastName: lastName,
+                givenName: givenName,
+                middleInitial: middleInitial,
+                name: `${lastName}, ${givenName}${middleInitial ? ' ' + middleInitial + '.' : ''}`,
+                program: document.getElementById('manualProgram').value,
+                year: document.getElementById('manualYear').value,
+                section: document.getElementById('manualSection').value
+            };
+
+            const eventId = document.getElementById('manualEvent').value;
+            if (eventId) student.eventId = eventId;
+
+            const subject = document.getElementById('manualSubject').value.trim();
+            const status = document.getElementById('manualStatus').value;
+            const scanType = document.getElementById('manualScanType').value;
+
+            recordAttendance(student, subject, status, 'Manual', scanType);
+            this.reset();
+            // Reset manual mode buttons
+            const manualBtns = document.querySelectorAll('#manualEntryForm .inout-btn');
+            manualBtns.forEach(btn => btn.classList.remove('selected'));
+            document.querySelector('#manualEntryForm .inout-btn[data-mode="am-in"]').classList.add('selected');
+            document.getElementById('manualScanType').value = 'am-in';
+        });
+
+        // ==================== MODERATOR TABLE WITH FILTERS & PAGINATION ====================
+        function getFilteredRecords() {
+            const yearFilter = document.getElementById('filterYear').value;
+            const sectionFilter = document.getElementById('filterSection').value;
+            const programFilter = document.getElementById('filterProgram').value;
+            const eventFilter = document.getElementById('filterEvent').value;
+            const scanTypeFilter = document.getElementById('filterScanType').value;
+
+            return attendanceRecords.filter(r => {
+                if (yearFilter && r.year !== yearFilter) return false;
+                if (sectionFilter && r.section !== sectionFilter) return false;
+                if (programFilter && r.program !== programFilter) return false;
+                if (eventFilter && r.event !== eventFilter) return false;
+                if (scanTypeFilter && r.scanType !== scanTypeFilter) return false;
+                return true;
+            });
+        }
+
+        function populateAttendanceEventFilter() {
+            const select = document.getElementById('filterEvent');
+            if (!select) return;
+            const current = select.value;
+            const eventNames = [...new Set(attendanceRecords.map(r => r.event).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+            select.innerHTML = '<option value="">All Events</option>' + eventNames.map(name => `<option value="${escapeHtmlAttribute(name)}">${escapeHtml(name)}</option>`).join('');
+            if (eventNames.includes(current)) select.value = current;
+        }
+
+        function escapeHtml(value) {
+            return String(value || '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+        }
+
+        function escapeHtmlAttribute(value) {
+            return escapeHtml(value);
+        }
+
+        function applyFilters() {
+            populateAttendanceEventFilter();
+            const filtered = getFilteredRecords();
+            const tbody = document.getElementById('moderatorRecordsBody');
+            const paginationText = document.getElementById('paginationText');
+
+            window.currentFilteredRecords = filtered;
+            const displayRecords = filtered.slice(0, TABLE_PAGE_SIZE);
+
+            if (paginationText) {
+                if (filtered.length === 0) {
+                    paginationText.innerHTML = 'No records found for today.';
+                } else if (filtered.length <= TABLE_PAGE_SIZE) {
+                    paginationText.innerHTML = `Showing all <strong>${filtered.length}</strong> records`;
+                } else {
+                    paginationText.innerHTML = `Showing <strong>${displayRecords.length}</strong> of <strong>${filtered.length}</strong> records today. <a href="#" onclick="event.preventDefault(); exportToExcel('filtered');">Export filtered</a> or <a href="#" onclick="event.preventDefault(); exportToExcel('all');">export all history</a>.`;
+                }
+            }
+
+            if (displayRecords.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="13" style="text-align:center; color:rgba(255,255,255,0.5);">No records match the selected filters.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = displayRecords.map(record => `
+                <tr>
+                    <td>${record.id}</td>
+                    <td>${record.lastName || ''}</td>
+                    <td>${record.givenName || ''}</td>
+                    <td>${record.middleInitial ? record.middleInitial + '.' : ''}</td>
+                    <td>${record.program}</td>
+                    <td>${record.year}</td>
+                    <td>${record.section}</td>
+                    <td>${record.event}</td>
+                    <td>${record.date}</td>
+                    <td>${record.time}</td>
+                    <td><span class="status-${record.status.toLowerCase()}">${record.status}</span></td>
+                    <td><span class="status-${record.scanType || 'am-in'}">${(record.scanType || 'am-in').toUpperCase().replace('-', ' ')}</span></td>
+                    <td>${record.method}</td>
+                </tr>
+            `).join('');
+        }
+
+
+        // ==================== EVENT ATTENDANCE MATRIX ====================
+        function populateMatrixEventSelector() {
+            const select = document.getElementById('matrixEventSelect');
+            if (!select) return;
+            const current = select.value;
+            select.innerHTML = '<option value="">Select Event</option>';
+            events.slice().sort((a,b) => new Date((a.date||'')+'T'+(a.time||'00:00')) - new Date((b.date||'')+'T'+(b.time||'00:00'))).forEach(event => {
+                const opt = document.createElement('option');
+                opt.value = event.id;
+                opt.textContent = `${event.name} — ${formatDate(event.date)}`;
+                select.appendChild(opt);
+            });
+            if (current && events.some(e => e.id === current)) select.value = current;
+        }
+
+        function renderAttendanceMatrix() {
+            const select = document.getElementById('matrixEventSelect');
+            const body = document.getElementById('attendanceMatrixBody');
+            if (!select || !body) return;
+            const eventId = select.value;
+            if (!eventId) {
+                body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:rgba(255,255,255,.55);padding:24px;">Select an event to view the attendance matrix.</td></tr>';
+                return;
+            }
+
+            const rows = new Map();
+            // Start with the registered population so students with no scan are
+            // visible as missing/absent instead of disappearing from the sheet.
+            registeredStudents.forEach(student => {
+                const id = normalizeStudentId(student.id);
+                if (!id) return;
+                rows.set(id, {
+                    id,
+                    lastName: student.lastName || '',
+                    givenName: student.givenName || '',
+                    mi: student.middleInitial || '',
+                    scans: {}
+                });
+            });
+
+            const eventName = events.find(e => e.id === eventId)?.name || '';
+            attendanceRecords
+                .filter(r => String(r.eventId || '') === String(eventId) ||
+                    (!r.eventId && r.event === eventName))
+                .forEach(r => {
+                    const id = normalizeStudentId(r.id);
+                    if (!id) return;
+                    if (!rows.has(id)) {
+                        rows.set(id, {
+                            id,
+                            lastName: r.lastName || '',
+                            givenName: r.givenName || '',
+                            mi: r.middleInitial || '',
+                            scans: {}
+                        });
+                    }
+                    rows.get(id).scans[normalizeScanType(r.scanType)] = r.status || 'Present';
+                });
+
+            const sortedRows = Array.from(rows.values()).sort((a,b) => {
+                const ln = a.lastName.localeCompare(b.lastName, undefined, {sensitivity:'base'});
+                return ln || a.givenName.localeCompare(b.givenName, undefined, {sensitivity:'base'});
+            });
+
+            if (!sortedRows.length) {
+                body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:rgba(255,255,255,.55);padding:24px;">No registered students yet.</td></tr>';
+                return;
+            }
+
+            const order = ['am-in','am-out','pm-in','pm-out'];
+            body.innerHTML = sortedRows.map(r => {
+                const cell = type => {
+                    const v = r.scans[type];
+                    if (!v) return '<span class="matrix-missing">—</span>';
+                    if (v === 'Late') return '<span class="matrix-late">LATE</span>';
+                    return '<span class="matrix-ok">✓</span>';
+                };
+                return `<tr><td>${escapeHtml(r.lastName)}, ${escapeHtml(r.givenName)}${r.mi ? ' '+escapeHtml(r.mi)+'.' : ''}</td><td>${escapeHtml(r.id)}</td>${order.map(cell).map(x=>`<td>${x}</td>`).join('')}</tr>`;
+            }).join('');
+        }
+
+        document.getElementById('matrixEventSelect')?.addEventListener('change', renderAttendanceMatrix);
+
+        function updateStats() {
+            const uniqueStudents = new Set(registeredStudents.map(r => r.id)).size;
+
+            // One student = one attendance for today's dashboard statistics.
+            // AM IN, AM OUT, PM IN and PM OUT are attendance records, but they
+            // must never inflate the Present/Late/Absent counts.
+            const studentStatus = new Map();
+            attendanceRecords.forEach(record => {
+                const id = record.id;
+                if (!id) return;
+                const current = studentStatus.get(id);
+                if (!current) {
+                    studentStatus.set(id, record.status);
+                    return;
+                }
+                // Late takes priority for the late statistic; otherwise preserve Present.
+                if (record.status === 'Late' || (current !== 'Late' && record.status === 'Present')) {
+                    studentStatus.set(id, record.status);
+                }
+            });
+
+            const present = Array.from(studentStatus.values()).filter(status => status === 'Present' || status === 'Late').length;
+            const late = Array.from(studentStatus.values()).filter(status => status === 'Late').length;
+            const absent = Math.max(uniqueStudents - present, 0);
+            const rate = uniqueStudents > 0 ? Math.round((present / uniqueStudents) * 100) : 0;
+
+            document.getElementById('totalStudents').textContent = uniqueStudents;
+            document.getElementById('presentToday').textContent = present;
+            document.getElementById('lateToday').textContent = late;
+            const absentEl = document.getElementById('absentToday');
+            if (absentEl) absentEl.textContent = absent;
+            document.getElementById('attendanceRate').textContent = rate + '%';
+        }
+
+        function renderStudentHistory(history) {
+            const tbody = document.getElementById('studentHistoryBody');
+            if (history.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:rgba(255,255,255,0.5);">No records yet.</td></tr>`;
+                return;
+            }
+            tbody.innerHTML = history.map(record => `
+                <tr>
+                    <td>${record.date}</td>
+                    <td>${record.time}</td>
+                    <td>${record.event}</td>
+                    <td>${record.section}</td>
+                    <td><span class="status-${record.status.toLowerCase()}">${record.status}</span></td>
+                    <td><span class="status-${record.scanType || 'am-in'}">${(record.scanType || 'am-in').toUpperCase().replace('-', ' ')}</span></td>
+                </tr>
+            `).join('');
+        }
+
+        // ==================== EXCEL EXPORT (FILTERED OR ALL) ====================
+        function formatExcelDate(record) {
+            if (record.dateKey) {
+                const d = new Date(record.dateKey + 'T00:00:00');
+                if (!Number.isNaN(d.getTime())) {
+                    return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+                }
+            }
+            if (record.timestamp) {
+                const d = new Date(record.timestamp);
+                if (!Number.isNaN(d.getTime())) {
+                    return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+                }
+            }
+            return record.date || '';
+        }
+
+        function dedupeAndSortExportRecords(records) {
+            const unique = new Map();
+            records.forEach(record => {
+                const scanType = normalizeScanType(record.scanType);
+                const key = [
+                    normalizeStudentId(record.id || ''),
+                    record.eventId || record.event || 'General Attendance',
+                    record.dateKey || record.date || '',
+                    scanType
+                ].join('|');
+                if (!unique.has(key)) unique.set(key, { ...record, scanType });
+            });
+
+            return Array.from(unique.values()).sort((a, b) => {
+                const last = String(a.lastName || '').localeCompare(String(b.lastName || ''), undefined, { sensitivity: 'base' });
+                if (last !== 0) return last;
+                const first = String(a.givenName || '').localeCompare(String(b.givenName || ''), undefined, { sensitivity: 'base' });
+                if (first !== 0) return first;
+                return String(a.id || '').localeCompare(String(b.id || ''), undefined, { numeric: true, sensitivity: 'base' });
+            });
+        }
+
+        function buildExportData(records) {
+            return dedupeAndSortExportRecords(records).map(r => ({
+                'Student ID': normalizeStudentId(r.id || ''),
+                'Last Name': r.lastName || '',
+                'Given Name': r.givenName || '',
+                'M.I.': r.middleInitial ? String(r.middleInitial).replace(/\.$/, '') : '',
+                'Program': r.program || '',
+                'Year level': r.year || '',
+                'Section': r.section || '',
+                'Event': r.event || 'General Attendance',
+                'Date': formatExcelDate(r),
+                'Scan Type': (normalizeScanType(r.scanType)).toUpperCase().replace('-', ' ')
+            }));
+        }
+
+        function sanitizeSheetName(name) {
+            return String(name || 'Attendance')
+                .replace(/[\\\/\?\*\[\]:]/g, '-')
+                .replace(/^'+|'+$/g, '')
+                .substring(0, 31) || 'Attendance';
+        }
+
+        function uniqueSheetName(base, used) {
+            let name = sanitizeSheetName(base);
+            if (!used.has(name)) {
+                used.add(name);
+                return name;
+            }
+            let i = 2;
+            while (true) {
+                const suffix = ` (${i})`;
+                const candidate = sanitizeSheetName(name.substring(0, 31 - suffix.length) + suffix);
+                if (!used.has(candidate)) {
+                    used.add(candidate);
+                    return candidate;
+                }
+                i++;
+            }
+        }
+
+        // Robust Excel library loader. If the primary CDN fails, try alternate CDNs.
+        let xlsxLoadPromise = null;
+        function ensureXLSX() {
+            if (window.XLSX && typeof window.XLSX.utils?.book_new === 'function') {
+                return Promise.resolve(window.XLSX);
+            }
+            if (xlsxLoadPromise) return xlsxLoadPromise;
+
+            const sources = [
+                'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+                'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
+                'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js'
+            ];
+
+            xlsxLoadPromise = new Promise((resolve, reject) => {
+                let index = 0;
+                const tryNext = () => {
+                    if (window.XLSX && typeof window.XLSX.utils?.book_new === 'function') {
+                        resolve(window.XLSX);
+                        return;
+                    }
+                    if (index >= sources.length) {
+                        reject(new Error('The Excel library could not be loaded. Please check your internet connection or browser extensions blocking CDN scripts.'));
+                        return;
+                    }
+
+                    const script = document.createElement('script');
+                    script.src = sources[index++];
+                    script.async = true;
+                    script.onload = () => {
+                        if (window.XLSX) resolve(window.XLSX);
+                        else tryNext();
+                    };
+                    script.onerror = () => tryNext();
+                    document.head.appendChild(script);
+                };
+                tryNext();
+            }).catch(err => {
+                xlsxLoadPromise = null;
+                throw err;
+            });
+
+            return xlsxLoadPromise;
+        }
+
+        function downloadXLSXBlob(wb, filename) {
+            const arrayBuffer = XLSX.write(wb, {
+                bookType: 'xlsx',
+                type: 'array',
+                compression: false
+            });
+            const blob = new Blob([arrayBuffer], {
+                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            setTimeout(() => {
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            }, 1000);
+        }
+
+        function doExportDownload(records, label) {
+            const cleanRecords = dedupeAndSortExportRecords(records);
+            if (cleanRecords.length === 0) {
+                showToast('No records to export!', 'error');
+                return;
+            }
+
+            showToast('Preparing Excel file...', 'info');
+
+            ensureXLSX().then(() => {
+                try {
+                    const wb = XLSX.utils.book_new();
+                    const usedSheetNames = new Set();
+
+                    // Every Event + Date + Scan Type gets its own worksheet.
+                    const groups = new Map();
+                    cleanRecords.forEach(record => {
+                        const event = record.event || 'General Attendance';
+                        const eventKey = record.eventId || event;
+                        const dateKey = record.dateKey || record.date || '';
+                        const scanType = normalizeScanType(record.scanType);
+                        const key = `${eventKey}|||${event}|||${dateKey}|||${scanType}`;
+                        if (!groups.has(key)) groups.set(key, []);
+                        groups.get(key).push(record);
+                    });
+
+                    const scanOrder = { 'am-in': 1, 'am-out': 2, 'pm-in': 3, 'pm-out': 4 };
+                    const groupedEntries = Array.from(groups.entries()).sort((a, b) => {
+                        const [, eventA, dateA, typeA] = a[0].split('|||');
+                        const [, eventB, dateB, typeB] = b[0].split('|||');
+                        const eventCompare = eventA.localeCompare(eventB, undefined, { sensitivity: 'base' });
+                        if (eventCompare !== 0) return eventCompare;
+                        const dateCompare = String(dateA).localeCompare(String(dateB));
+                        return dateCompare !== 0 ? dateCompare : (scanOrder[typeA] || 99) - (scanOrder[typeB] || 99);
+                    });
+
+                    groupedEntries.forEach(([key, recordsInGroup]) => {
+                        const [, event, dateKey, scanType] = key.split('|||');
+                        const readableDate = dateKey ? formatExcelDate({ dateKey }) : '';
+                        const sheetName = uniqueSheetName(
+                            `${event} - ${readableDate} - ${scanType.toUpperCase().replace('-', ' ')}`,
+                            usedSheetNames
+                        );
+                        const data = buildExportData(recordsInGroup);
+                        const ws = XLSX.utils.json_to_sheet(data, {
+                            header: ['Student ID', 'Last Name', 'Given Name', 'M.I.', 'Program', 'Year level', 'Section', 'Event', 'Date', 'Scan Type']
+                        });
+
+                        if (ws['!ref']) {
+                            ws['!autofilter'] = { ref: ws['!ref'] };
+                        }
+                        ws['!freeze'] = { xSplit: 0, ySplit: 1 };
+                        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+                    });
+
+                    if (wb.SheetNames.length === 0) {
+                        throw new Error('No attendance sheets could be created.');
+                    }
+
+                    const now = new Date();
+                    const filename = `SIC_Attendance_${now.toISOString().split('T')[0]}_${label || 'Export'}.xlsx`;
+
+                    // Use a Blob + temporary download link as the primary save method.
+                    // This is more reliable across Chrome/Edge, hosted Vercel pages, and
+                    // browsers where SheetJS writeFile() is blocked or behaves inconsistently.
+                    downloadXLSXBlob(wb, filename);
+
+                    showToast(`Excel file downloaded! (${cleanRecords.length} unique records across ${groupedEntries.length} sheets)`, 'success');
+                } catch (err) {
+                    console.error('Excel export error:', err);
+                    showToast('Excel download failed: ' + (err.message || err), 'error');
+                }
+            }).catch(err => {
+                console.error('Excel library error:', err);
+                showToast('Excel download failed. Please check your internet connection and try again.', 'error');
+            });
+        }
+
+        function exportToExcel(mode) {
+            // Downloads intentionally have NO confirmation. Only Clear All has a confirmation.
+            if (mode === 'all') {
+                showToast('Fetching all historical records...', 'info');
+                attendanceRef.once('value', (snapshot) => {
+                    const data = snapshot.val();
+                    const allRecords = data ? Object.values(data) : [];
+                    if (allRecords.length === 0) {
+                        showToast('No records to export!', 'error');
+                        return;
+                    }
+                    doExportDownload(allRecords, 'All');
+                }, (err) => {
+                    showToast('Failed to fetch records: ' + err.message, 'error');
+                });
+                return;
+            }
+
+            const recordsToExport = getFilteredRecords();
+            if (recordsToExport.length === 0) {
+                showToast('No records to export!', 'error');
+                return;
+            }
+
+            const fy = document.getElementById('filterYear').value;
+            const fs = document.getElementById('filterSection').value;
+            const fp = document.getElementById('filterProgram').value;
+            const fe = document.getElementById('filterEvent').value;
+            const ft = document.getElementById('filterScanType').value;
+            const parts = [];
+            if (fy) parts.push(`Year${fy}`);
+            if (fs) parts.push(`Sec${fs}`);
+            if (fp) parts.push(fp);
+            if (fe) parts.push(fe.replace(/\s+/g, '-'));
+            if (ft) parts.push(ft.toUpperCase().replace('-', ''));
+            const label = parts.length > 0 ? parts.join('_') : 'Filtered';
+
+            doExportDownload(recordsToExport, label);
+        }
+
+        // ==================== CSV IMPORT ====================
+        function importCSV(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                const lines = text.split('\n');
+                for (let i = 1; i < lines.length; i++) {
+                    if (!lines[i].trim()) continue;
+                    const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
+                    const recordId = 'att_' + Date.now() + '_' + i;
+                    const record = {
+                        id: normalizeStudentId(values[0] || ''),
+                        lastName: values[1] || '',
+                        givenName: values[2] || '',
+                        middleInitial: values[3] || '',
+                        name: `${values[1] || ''}, ${values[2] || ''}${values[3] ? ' ' + values[3] + '.' : ''}`,
+                        program: values[4] || '',
+                        year: values[5] || '',
+                        section: values[6] || 'N/A',
+                        event: values[7] || 'Imported',
+                        date: values[8] || new Date().toLocaleDateString('en-PH'),
+                        time: values[9] || new Date().toLocaleTimeString('en-PH'),
+                        status: values[10] || 'Present',
+                        scanType: values[11] || 'am-in',
+                        method: 'CSV Import',
+                        timestamp: new Date().toISOString()
+                    };
+                    attendanceRef.child(recordId).set(record);
+                }
+                showToast('CSV imported successfully!', 'success');
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        // ==================== CLEAR ALL ====================
+        function clearAllRecords() {
+            if (confirm(`WARNING: This will permanently delete ALL attendance records from the database.\n\nThis action cannot be undone.\n\nAre you absolutely sure?`)) {
+                attendanceRef.remove()
+                    .then(() => {
+                        showToast('All records cleared.', 'info');
+                        attendanceRecords = [];
+                        applyFilters();
+                        updateStats();
+                    })
+                    .catch(err => showToast('Error: ' + err.message, 'error'));
+            }
+        }
+
+        // ==================== INIT ====================
+        setupTodayListener();
+
+        if (currentStudent) {
+            document.getElementById('studentId').value = normalizeStudentId(currentStudent.id);
+            document.getElementById('studentLastName').value = currentStudent.lastName || '';
+            document.getElementById('studentGivenName').value = currentStudent.givenName || '';
+            document.getElementById('studentMiddleInitial').value = currentStudent.middleInitial || '';
+            document.getElementById('studentProgram').value = currentStudent.program;
+            document.getElementById('studentYear').value = currentStudent.year;
+            document.getElementById('studentSection').value = currentStudent.section || '';
+            showQRGenerationCard();
+            setupStudentHistory(currentStudent.id);
+        }
+    </script>
+</body>
+</html>
